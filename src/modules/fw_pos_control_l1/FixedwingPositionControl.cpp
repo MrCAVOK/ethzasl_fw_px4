@@ -1054,7 +1054,9 @@ FixedwingPositionControl::control_auto_position(const hrt_abstime &now, const Ve
 				   tecs_fw_thr_max,
 				   tecs_fw_mission_throttle,
 				   false,
-				   radians(_param_fw_p_lim_min.get()));
+				   radians(_param_fw_p_lim_min.get()),
+				   tecs_status_s::TECS_MODE_NORMAL,
+				   pos_sp_curr.vz);
 }
 
 void
@@ -1905,29 +1907,44 @@ FixedwingPositionControl::Run()
 			vehicle_local_position_setpoint_s trajectory_setpoint;
 
 			if (_trajectory_setpoint_sub.update(&trajectory_setpoint)) {
+				bool valid_setpoint = false;
+				_pos_sp_triplet = {}; // clear any existing
+
+				_pos_sp_triplet.timestamp = trajectory_setpoint.timestamp;
+				_pos_sp_triplet.current.timestamp = trajectory_setpoint.timestamp;
+				_pos_sp_triplet.current.valid = true;
+				_pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+				_pos_sp_triplet.current.cruising_speed = NAN; // ignored
+				_pos_sp_triplet.current.cruising_throttle = NAN; // ignored
+
 				if (PX4_ISFINITE(trajectory_setpoint.x) && PX4_ISFINITE(trajectory_setpoint.y) && PX4_ISFINITE(trajectory_setpoint.z)) {
+					valid_setpoint = true;
+
 					double lat;
 					double lon;
 
 					if (map_projection_reproject(&_global_local_proj_ref, trajectory_setpoint.x, trajectory_setpoint.y, &lat, &lon) == 0) {
-						_pos_sp_triplet = {}; // clear any existing
-
-						_pos_sp_triplet.timestamp = trajectory_setpoint.timestamp;
-						_pos_sp_triplet.current.timestamp = trajectory_setpoint.timestamp;
-						_pos_sp_triplet.current.valid = true;
-						_pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 						_pos_sp_triplet.current.lat = lat;
 						_pos_sp_triplet.current.lon = lon;
 						_pos_sp_triplet.current.alt = _global_local_alt0 - trajectory_setpoint.z;
-						_pos_sp_triplet.current.cruising_speed = NAN; // ignored
-						_pos_sp_triplet.current.cruising_throttle = NAN; // ignored
 					}
+				}
 
-				} else {
+				if (PX4_ISFINITE(trajectory_setpoint.vx) && PX4_ISFINITE(trajectory_setpoint.vy)
+				    && PX4_ISFINITE(trajectory_setpoint.vz)) {
+					valid_setpoint = true;
+					_pos_sp_triplet.current.vx = trajectory_setpoint.vx;
+					_pos_sp_triplet.current.vy = trajectory_setpoint.vy;
+					_pos_sp_triplet.current.vz = trajectory_setpoint.vz;
+				}
+
+
+				if (!valid_setpoint) {
 					mavlink_log_critical(&_mavlink_log_pub, "Invalid offboard setpoint\t");
 					events::send(events::ID("fixedwing_position_control_invalid_offboard_sp"), events::Log::Error,
 						     "Invalid offboard setpoint");
 				}
+
 			}
 
 		} else {
