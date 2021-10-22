@@ -89,6 +89,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vehicle_trajectory_waypoint.h>
 #include <uORB/topics/wind.h>
 #include <uORB/uORB.h>
 #include <vtol_att_control/vtol_type.h>
@@ -154,6 +155,7 @@ private:
 	uORB::Subscription _vehicle_command_sub{ORB_ID(vehicle_command)};
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _trajectory_waypoint_sub{ORB_ID(vehicle_trajectory_waypoint)};
 	uORB::Subscription _wind_sub{ORB_ID(wind)};
 
 	uORB::Publication<vehicle_attitude_setpoint_s>		_attitude_sp_pub;
@@ -289,6 +291,7 @@ private:
 	void		vehicle_attitude_poll();
 	void		vehicle_command_poll();
 	void		vehicle_control_mode_poll();
+	void		vehicle_trajectory_waypoint_poll();
 	void		vehicle_status_poll();
 	void        	wind_poll();
 

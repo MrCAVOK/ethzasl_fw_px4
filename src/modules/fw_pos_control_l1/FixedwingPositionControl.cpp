@@ -240,6 +240,16 @@ FixedwingPositionControl::vehicle_control_mode_poll()
 }
 
 void
+FixedwingPositionControl::vehicle_trajectory_waypoint_poll()
+{
+	vehicle_trajectory_waypoint_s trajectory_waypoint{};
+
+	if (_trajectory_waypoint_sub.updated()) {
+		_trajectory_waypoint_sub.update(&trajectory_waypoint);
+	}
+}
+
+void
 FixedwingPositionControl::vehicle_command_poll()
 {
 	vehicle_command_s vehicle_command;
@@ -2137,6 +2147,7 @@ FixedwingPositionControl::Run()
 		vehicle_attitude_poll();
 		vehicle_command_poll();
 		vehicle_control_mode_poll();
+		vehicle_trajectory_waypoint_poll();
 
 		if (_vehicle_land_detected_sub.updated()) {
 			vehicle_land_detected_s vehicle_land_detected;

@@ -1944,6 +1944,29 @@ MavlinkReceiver::handle_message_trajectory_representation_waypoints(mavlink_mess
 
 	trajectory_waypoint.timestamp = hrt_absolute_time();
 	_trajectory_waypoint_pub.publish(trajectory_waypoint);
+
+	offboard_control_mode_s ocm{};
+	ocm.position = true;
+	ocm.velocity = false;
+	ocm.acceleration = false;
+
+	if (ocm.position || ocm.velocity || ocm.acceleration) {
+		// publish offboard_control_mode
+		ocm.timestamp = hrt_absolute_time();
+		_offboard_control_mode_pub.publish(ocm);
+
+		vehicle_status_s vehicle_status{};
+		_vehicle_status_sub.copy(&vehicle_status);
+
+		if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+			// only publish setpoint once in OFFBOARD
+			trajectory_waypoint.timestamp = hrt_absolute_time();
+			_trajectory_waypoint_pub.publish(trajectory_waypoint);
+		}
+
+	} else {
+		mavlink_log_critical(&_mavlink_log_pub, "TRAJECTORY_REPRESETNATION_WAYPOINTS invalid");
+	}
 }
 
 int
