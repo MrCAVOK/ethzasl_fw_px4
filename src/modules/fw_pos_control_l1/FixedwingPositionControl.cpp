@@ -887,6 +887,11 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 	case position_setpoint_s::SETPOINT_TYPE_TAKEOFF:
 		control_auto_takeoff(now, dt, curr_pos, ground_speed, pos_sp_prev, pos_sp_curr);
 		break;
+
+	case position_setpoint_s::SETPOINT_TYPE_TRAJECTORY:
+		control_auto_path(now, curr_pos, ground_speed, _vehicle_trajectory_waypoint);
+		break;
+
 	}
 
 	/* reset landing state */
@@ -957,6 +962,11 @@ FixedwingPositionControl::handle_setpoint_type(const uint8_t setpoint_type, cons
 {
 	Vector2d curr_wp{0, 0};
 	Vector2d prev_wp{0, 0};
+	bool valid_trajectory_setpoint{false};
+
+	if (valid_trajectory_setpoint) {
+		return position_setpoint_s::SETPOINT_TYPE_TRAJECTORY;
+	}
 
 	if (_vehicle_status.in_transition_to_fw) {
 
