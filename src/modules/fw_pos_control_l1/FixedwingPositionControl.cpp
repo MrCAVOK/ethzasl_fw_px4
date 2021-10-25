@@ -1331,6 +1331,70 @@ FixedwingPositionControl::control_auto_loiter(const hrt_abstime &now, const Vect
 }
 
 void
+FixedwingPositionControl::control_auto_path(const hrt_abstime &now, const Vector2d &curr_pos,
+		const Vector2f &ground_speed, const vehicle_trajectory_waypoint_s &trajectory_waypoint)
+{
+	//Assume NPFG is always running for this controller
+	Vector2d curr_wp{0, 0};
+	Vector2d prev_wp{0, 0};
+
+	float mission_airspeed = _param_fw_airspd_trim.get();
+
+	// if (PX4_ISFINITE(pos_sp_curr.cruising_speed) &&
+	//     pos_sp_curr.cruising_speed > 0.1f) {
+
+	// 	mission_airspeed = pos_sp_curr.cruising_speed;
+	// }
+
+	float tecs_fw_thr_min;
+	float tecs_fw_thr_max;
+	float tecs_fw_mission_throttle;
+
+	float mission_throttle = _param_fw_thr_cruise.get();
+
+	// if (PX4_ISFINITE(pos_sp_curr.cruising_throttle) &&
+	//     pos_sp_curr.cruising_throttle >= 0.0f) {
+	// 	mission_throttle = pos_sp_curr.cruising_throttle;
+	// }
+
+	if (mission_throttle < _param_fw_thr_min.get()) {
+		/* enable gliding with this waypoint */
+		_tecs.set_speed_weight(2.0f);
+		tecs_fw_thr_min = 0.0;
+		tecs_fw_thr_max = 0.0;
+		tecs_fw_mission_throttle = 0.0;
+
+	} else {
+		tecs_fw_thr_min = _param_fw_thr_min.get();
+		tecs_fw_thr_max = _param_fw_thr_max.get();
+		tecs_fw_mission_throttle = mission_throttle;
+	}
+
+	// waypoint is a plain navigation waypoint
+	// float position_sp_alt = pos_sp_curr.alt;
+	float position_sp_alt{};
+
+	float target_airspeed = calculate_target_airspeed(mission_airspeed, ground_speed);
+
+	_npfg.setAirspeedNom(target_airspeed);
+	_npfg.setAirspeedMax(_param_fw_airspd_max.get());
+	_npfg.navigateWaypoints(prev_wp, curr_wp, curr_pos, ground_speed, _wind_vel);
+	_att_sp.roll_body = _npfg.getRollSetpoint();
+	_att_sp.yaw_body = _npfg.getBearing();
+	target_airspeed = _npfg.getAirspeedRef();
+
+	tecs_update_pitch_throttle(now, position_sp_alt,
+				   target_airspeed,
+				   radians(_param_fw_p_lim_min.get()),
+				   radians(_param_fw_p_lim_max.get()),
+				   tecs_fw_thr_min,
+				   tecs_fw_thr_max,
+				   tecs_fw_mission_throttle,
+				   false,
+				   radians(_param_fw_p_lim_min.get()));
+}
+
+void
 FixedwingPositionControl::control_auto_takeoff(const hrt_abstime &now, const float dt, const Vector2d &curr_pos,
 		const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr)
 {

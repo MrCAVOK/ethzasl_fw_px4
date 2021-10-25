@@ -170,6 +170,7 @@ private:
 	vehicle_control_mode_s		_control_mode {};		///< control mode
 	vehicle_local_position_s	_local_pos {};			///< vehicle local position
 	vehicle_status_s		_vehicle_status {};		///< vehicle status
+	vehicle_trajectory_waypoint_s	_vehicle_trajectory_waypoint {};
 
 	double _current_latitude{0};
 	double _current_longitude{0};
@@ -343,6 +344,8 @@ private:
 					      const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr);
 	void		control_auto_loiter(const hrt_abstime &now, const Vector2d &curr_pos, const Vector2f &ground_speed,
 					    const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr, const position_setpoint_s &pos_sp_next);
+	void		control_auto_path(const hrt_abstime &now, const Vector2d &curr_pos, const Vector2f &ground_speed,
+					  const vehicle_trajectory_waypoint_s &trajectory_waypoint);
 	void		control_auto_takeoff(const hrt_abstime &now, const float dt,  const Vector2d &curr_pos,
 					     const Vector2f &ground_speed,
 					     const position_setpoint_s &pos_sp_prev,
