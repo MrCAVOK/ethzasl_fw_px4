@@ -964,7 +964,7 @@ FixedwingPositionControl::handle_setpoint_type(const uint8_t setpoint_type, cons
 	Vector2d prev_wp{0, 0};
 	bool valid_trajectory_setpoint{false};
 
-	if (valid_trajectory_setpoint) {
+	if (valid_trajectory_setpoint && _control_mode.flag_control_offboard_enabled) {
 		return position_setpoint_s::SETPOINT_TYPE_TRAJECTORY;
 	}
 
