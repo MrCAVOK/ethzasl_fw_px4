@@ -1338,6 +1338,12 @@ FixedwingPositionControl::control_auto_path(const hrt_abstime &now, const Vector
 	Vector2d curr_wp{0, 0};
 	Vector2d prev_wp{0, 0};
 
+	prev_wp(0) = trajectory_waypoint.waypoints[0].position[0];
+	prev_wp(1) = trajectory_waypoint.waypoints[0].position[1];
+
+	curr_wp(0) = trajectory_waypoint.waypoints[1].position[0];
+	curr_wp(1) = trajectory_waypoint.waypoints[1].position[1];
+
 	float mission_airspeed = _param_fw_airspd_trim.get();
 
 	// if (PX4_ISFINITE(pos_sp_curr.cruising_speed) &&
