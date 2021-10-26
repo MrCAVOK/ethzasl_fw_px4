@@ -739,12 +739,6 @@ FixedwingPositionControl::control_auto(const hrt_abstime &now, const Vector2d &c
 		_was_in_air = false;
 	}
 
-	/* Reset integrators if switching to this mode from a other mode in which posctl was not active */
-	if (_control_mode_current == FW_POSCTRL_MODE_OTHER) {
-		/* reset integrators */
-		_tecs.reset_state();
-	}
-
 	/* reset hold altitude */
 	_hold_alt = _current_altitude;
 
@@ -1983,6 +1977,7 @@ FixedwingPositionControl::Run()
 				/* do not publish the setpoint */
 				// reset hold altitude
 				_hold_alt = _current_altitude;
+				_tecs.reset_state();
 
 				/* reset landing and takeoff state */
 				if (!_last_manual) {
