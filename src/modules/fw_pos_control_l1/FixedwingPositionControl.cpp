@@ -242,10 +242,10 @@ FixedwingPositionControl::vehicle_control_mode_poll()
 void
 FixedwingPositionControl::vehicle_trajectory_waypoint_poll()
 {
-	vehicle_trajectory_waypoint_s trajectory_waypoint{};
-
 	if (_trajectory_waypoint_sub.updated()) {
-		_trajectory_waypoint_sub.update(&trajectory_waypoint);
+		///TODO: Add Invalidate logic
+		_valid_trajectory_setpoint = true;
+		_trajectory_waypoint_sub.update(&_vehicle_trajectory_waypoint);
 	}
 }
 
@@ -962,9 +962,8 @@ FixedwingPositionControl::handle_setpoint_type(const uint8_t setpoint_type, cons
 {
 	Vector2d curr_wp{0, 0};
 	Vector2d prev_wp{0, 0};
-	bool valid_trajectory_setpoint{false};
 
-	if (valid_trajectory_setpoint && _control_mode.flag_control_offboard_enabled) {
+	if (_valid_trajectory_setpoint && _control_mode.flag_control_offboard_enabled) {
 		return position_setpoint_s::SETPOINT_TYPE_TRAJECTORY;
 	}
 
