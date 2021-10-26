@@ -670,20 +670,22 @@ FixedwingPositionControl::do_takeoff_help(float *hold_altitude, float *pitch_lim
 	}
 }
 
-void
-FixedwingPositionControl::set_control_mode_current(bool pos_sp_curr_valid)
+FW_POSCTRL_MODE
+FixedwingPositionControl::set_control_mode_current(bool pos_sp_curr_valid, const FW_POSCTRL_MODE current_mode)
 {
+	FW_POSCTRL_MODE updated_mode = current_mode;
+
 	/* only run position controller in fixed-wing mode and during transitions for VTOL */
 	if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.in_transition_mode) {
-		_control_mode_current = FW_POSCTRL_MODE_OTHER;
+		updated_mode = FW_POSCTRL_MODE_OTHER;
 		return; // do not publish the setpoint
 	}
 
 	if ((_control_mode.flag_control_auto_enabled || _control_mode.flag_control_offboard_enabled) && pos_sp_curr_valid) {
-		_control_mode_current = FW_POSCTRL_MODE_AUTO;
+		updated_mode = FW_POSCTRL_MODE_AUTO;
 
 	} else if (_control_mode.flag_control_velocity_enabled && _control_mode.flag_control_altitude_enabled) {
-		if (_control_mode_current != FW_POSCTRL_MODE_POSITION) {
+		if (updated_mode != FW_POSCTRL_MODE_POSITION) {
 			/* Need to init because last loop iteration was in a different mode */
 			_hold_alt = _current_altitude;
 			_hdg_hold_yaw = _yaw;
@@ -696,19 +698,21 @@ FixedwingPositionControl::set_control_mode_current(bool pos_sp_curr_valid)
 			_att_sp.yaw_body = 0;
 		}
 
-		_control_mode_current = FW_POSCTRL_MODE_POSITION;
+		updated_mode = FW_POSCTRL_MODE_POSITION;
 
 	} else if (_control_mode.flag_control_altitude_enabled) {
-		if (_control_mode_current != FW_POSCTRL_MODE_POSITION && _control_mode_current != FW_POSCTRL_MODE_ALTITUDE) {
+		if (updated_mode != FW_POSCTRL_MODE_POSITION && current_mode != FW_POSCTRL_MODE_ALTITUDE) {
 			/* Need to init because last loop iteration was in a different mode */
 			_hold_alt = _current_altitude;
 		}
 
-		_control_mode_current = FW_POSCTRL_MODE_ALTITUDE;
+		updated_mode = FW_POSCTRL_MODE_ALTITUDE;
 
 	} else {
-		_control_mode_current = FW_POSCTRL_MODE_OTHER;
+		updated_mode = FW_POSCTRL_MODE_OTHER;
 	}
+
+	return updated_mode;
 }
 
 void
@@ -1954,7 +1958,7 @@ FixedwingPositionControl::Run()
 		Vector2d curr_pos(_current_latitude, _current_longitude);
 		Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
 
-		set_control_mode_current(_pos_sp_triplet.current.valid);
+		_control_mode_current = set_control_mode_current(_pos_sp_triplet.current.valid, _control_mode_current);
 
 		switch (_control_mode_current) {
 		case FW_POSCTRL_MODE_AUTO: {
