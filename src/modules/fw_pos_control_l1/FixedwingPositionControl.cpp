@@ -979,15 +979,30 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				_att_sp.yaw_body = _l1_control.nav_bearing();
 			}
 
-			tecs_update_pitch_throttle(now, position_sp_alt,
-						   target_airspeed,
-						   radians(_param_fw_p_lim_min.get()),
-						   radians(_param_fw_p_lim_max.get()),
-						   tecs_fw_thr_min,
-						   tecs_fw_thr_max,
-						   tecs_fw_mission_throttle,
-						   false,
-						   radians(_param_fw_p_lim_min.get()));
+			if (_control_mode.flag_control_offboard_enabled) {
+				tecs_update_pitch_throttle(now, position_sp_alt,
+							   target_airspeed,
+							   radians(_param_fw_p_lim_min.get()),
+							   radians(_param_fw_p_lim_max.get()),
+							   tecs_fw_thr_min,
+							   tecs_fw_thr_max,
+							   tecs_fw_mission_throttle,
+							   false,
+							   radians(_param_fw_p_lim_min.get()),
+							   tecs_status_s::TECS_MODE_NORMAL,
+							   pos_sp_curr.vz);
+
+			} else {
+				tecs_update_pitch_throttle(now, position_sp_alt,
+							   target_airspeed,
+							   radians(_param_fw_p_lim_min.get()),
+							   radians(_param_fw_p_lim_max.get()),
+							   tecs_fw_thr_min,
+							   tecs_fw_thr_max,
+							   tecs_fw_mission_throttle,
+							   false,
+							   radians(_param_fw_p_lim_min.get()));
+			}
 
 
 		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
