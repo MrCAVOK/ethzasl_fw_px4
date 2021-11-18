@@ -577,6 +577,27 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
 	updateRollSetpoint();
 } // navigateLoiter
 
+
+void NPFG::navigatePathTangent(const matrix::Vector2d &vehicle_pos, const matrix::Vector2d &position_setpoint,
+			       const matrix::Vector2f &tangent_setpoint,
+			       const matrix::Vector2f &ground_vel, const matrix::Vector2f &wind_vel, const float &curvature)
+{
+	path_type_loiter_ = true;
+
+	// set unit tangent directly
+	unit_path_tangent_ = tangent_setpoint;
+
+	// positive in direction of path normal
+	matrix::Vector2f error_vector = getLocalPlanarVector(position_setpoint, vehicle_pos);
+	signed_track_error_ = -1.0f * matrix::sign(curvature) * error_vector.norm();
+
+	float path_curvature = -1.0f * curvature;
+
+	evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature);
+
+	updateRollSetpoint();
+} // navigatePathTangent
+
 void NPFG::navigateHeading(float heading_ref, const Vector2f &ground_vel, const Vector2f &wind_vel)
 {
 	path_type_loiter_ = false;

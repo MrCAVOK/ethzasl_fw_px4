@@ -950,7 +950,16 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			if (_param_fw_use_npfg.get()) {
 				_npfg.setAirspeedNom(target_airspeed);
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get());
-				_npfg.navigateWaypoints(prev_wp, curr_wp, curr_pos, ground_speed, _wind_vel);
+
+				if (_control_mode.flag_control_offboard_enabled) {
+					// Navigate directly on position setpoint and path tangent
+					matrix::Vector2f velocity_2d(pos_sp_curr.vx, pos_sp_curr.vy);
+					_npfg.navigatePathTangent(curr_pos, curr_wp, velocity_2d.normalized(), ground_speed, _wind_vel, pos_sp_curr.yawspeed);
+
+				} else {
+					_npfg.navigateWaypoints(prev_wp, curr_wp, curr_pos, ground_speed, _wind_vel);
+				}
+
 				_att_sp.roll_body = _npfg.getRollSetpoint();
 				_att_sp.yaw_body = _npfg.getBearing();
 				target_airspeed = _npfg.getAirspeedRef();
@@ -1943,15 +1952,17 @@ FixedwingPositionControl::Run()
 			vehicle_local_position_setpoint_s trajectory_setpoint;
 
 			if (_trajectory_setpoint_sub.update(&trajectory_setpoint)) {
+				bool valid_setpoint = false;
+				_pos_sp_triplet = {}; // clear any existing
+				_pos_sp_triplet.timestamp = trajectory_setpoint.timestamp;
+				_pos_sp_triplet.current.timestamp = trajectory_setpoint.timestamp;
+
 				if (PX4_ISFINITE(trajectory_setpoint.x) && PX4_ISFINITE(trajectory_setpoint.y) && PX4_ISFINITE(trajectory_setpoint.z)) {
 					double lat;
 					double lon;
 
 					if (map_projection_reproject(&_global_local_proj_ref, trajectory_setpoint.x, trajectory_setpoint.y, &lat, &lon) == 0) {
-						_pos_sp_triplet = {}; // clear any existing
 
-						_pos_sp_triplet.timestamp = trajectory_setpoint.timestamp;
-						_pos_sp_triplet.current.timestamp = trajectory_setpoint.timestamp;
 						_pos_sp_triplet.current.valid = true;
 						_pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 						_pos_sp_triplet.current.lat = lat;
@@ -1961,7 +1972,22 @@ FixedwingPositionControl::Run()
 						_pos_sp_triplet.current.cruising_throttle = NAN; // ignored
 					}
 
-				} else {
+					valid_setpoint = true;
+				}
+
+				if (PX4_ISFINITE(trajectory_setpoint.vx) && PX4_ISFINITE(trajectory_setpoint.vy)
+				    && PX4_ISFINITE(trajectory_setpoint.vz)) {
+					_pos_sp_triplet.current.vx = trajectory_setpoint.vx;
+					_pos_sp_triplet.current.vy = trajectory_setpoint.vy;
+					_pos_sp_triplet.current.vz = trajectory_setpoint.vz;
+					valid_setpoint = true;
+				}
+
+				if (PX4_ISFINITE(trajectory_setpoint.yawspeed)) {
+					_pos_sp_triplet.current.yawspeed = trajectory_setpoint.yawspeed;
+				}
+
+				if (!valid_setpoint) {
 					mavlink_log_critical(&_mavlink_log_pub, "Invalid offboard setpoint");
 				}
 			}
