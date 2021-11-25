@@ -500,6 +500,7 @@ FixedwingPositionControl::status_publish()
 		npfg_status.adapted_period = _npfg.getAdaptedPeriod();
 		npfg_status.p_gain = _npfg.getPGain();
 		npfg_status.time_const = _npfg.getTimeConst();
+		npfg_status.segment_complete = _npfg.getSegmentComplete();
 
 	} else {
 		pos_ctrl_status.nav_bearing = _l1_control.nav_bearing();
@@ -520,6 +521,7 @@ FixedwingPositionControl::status_publish()
 		npfg_status.adapted_period = 0.0f;
 		npfg_status.p_gain = 0.0f;
 		npfg_status.time_const = 0.0f;
+		npfg_status.segment_complete = false;
 	}
 
 	npfg_status.timestamp = hrt_absolute_time();
