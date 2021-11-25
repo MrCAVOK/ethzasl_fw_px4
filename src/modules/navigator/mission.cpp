@@ -266,7 +266,7 @@ Mission::on_active()
 		heading_sp_update();
 	}
 
-	// TODO: Add vtol heading update method if required.
+	// TODO: Add vtol heading update method if required._sub
 	// Question: Why does vtol ever have to update heading?
 
 	/* check if landing needs to be aborted */

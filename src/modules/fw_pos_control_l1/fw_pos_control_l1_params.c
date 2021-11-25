@@ -253,6 +253,21 @@ PARAM_DEFINE_FLOAT(NPFG_ASPD_BUF, 1.5f);
 PARAM_DEFINE_FLOAT(NPFG_SW_DST_MLT, 0.32f);
 
 /**
+ * NPFG trochoid sampling time
+ *
+ * Determines sampling distance of the waypoints generated in a trochoid segment
+ * When choosen low a lot of sampling points have to be calculated but
+ * accuracy of the approximation of the original path improves.
+ *
+ * @min 0.1
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.01
+ * @group FW NPFG Control
+ */
+PARAM_DEFINE_FLOAT(NPFG_TR_SAM_DT, 0.5f);
+
+/**
  * Enable use of wind estimates for NPFG. Disabling, controller assumes zero wind.
  *
  * @boolean

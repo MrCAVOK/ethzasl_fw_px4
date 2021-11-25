@@ -14,3 +14,4 @@ float32 min_ground_speed_ref    # minimum forward ground speed reference [m/s]
 float32 adapted_period          # adapted period (if auto-tuning enabled) [s]
 float32 p_gain                  # controller proportional gain [rad/s]
 float32 time_const              # controller time constant [s]
+uint8 segment_complete		# (boolean) true = segment is completed and hence last waypoint of the segment is passed

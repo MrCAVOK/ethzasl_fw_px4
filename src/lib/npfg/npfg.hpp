@@ -166,6 +166,11 @@ public:
 	float getTrackError() const { return signed_track_error_; }
 
 	/*
+	* @return Segment reached flag [bool]
+	*/
+	float getSegmentComplete() const { return segment_complete_; }
+
+	/*
 	 * @return Airspeed reference [m/s]
 	 */
 	float getAirspeedRef() const { return airspeed_ref_; }
@@ -256,6 +261,15 @@ public:
 	 */
 	void navigateHeading(float heading_ref, const matrix::Vector2f &ground_vel,
 			     const matrix::Vector2f &wind_vel);
+
+
+	// Method to follow a trochoid path segment based on the minimal parameter representation
+	// Helper functions included: troch_x, troch_y, troch_dx, troch_dy, troch_curv
+	void navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
+					const float omega, const float dt, const float T,
+					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
+					const matrix::Vector2f &wind_vel);
+
 
 	/*
 	 * Navigate on a fixed bearing.
@@ -400,7 +414,15 @@ private:
 	matrix::Vector2f unit_path_tangent_{matrix::Vector2f{1.0f, 0.0f}}; // unit path tangent vector
 	float signed_track_error_{0.0f}; // signed track error [m]
 	matrix::Vector2f bearing_vec_{matrix::Vector2f{1.0f, 0.0f}}; // bearing unit vector
-
+	float path_curvature__{0.0f};    // path curvature [1/m]
+	// specific path following states for trochoid segments
+	matrix::Vector2f wp0_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 1 for trochoid segment navigation
+	matrix::Vector2f wp1_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 1 for trochoid segment navigation
+	matrix::Vector2f wp2_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 2 for trochoid segment navigation
+	matrix::Vector2f wp3_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 3 for trochoid segment navigation
+	int wp_curr_{0};    // Current waypoint in trochoid segment
+	float wp_dt_{0.0f}; // Waypoint inter-sampling distance for trochoid segments
+	bool segment_complete_{false};   // Flag to indicate when segment is complete
 	/*
 	 * guidance outputs
 	 */
@@ -419,6 +441,16 @@ private:
 	float roll_slew_rate_{0.0f}; // roll angle setpoint slew rate limit [rad/s]
 	bool path_type_loiter_{false}; // true if the guidance law is tracking a loiter circle
 
+	/*
+	* Helper functions for navigateTrochoid()
+	Function to calculate position, tangent and curvature of a trochoid path segment @t
+	*/
+
+	float troch_x(float x0, float y0, float h0, float v, float w, float d1omega, float t);
+	float troch_y(float x0, float y0, float h0, float v, float w, float d1omega, float t);
+	float troch_dx(float x0, float y0, float h0, float v, float w, float d1omega, float t);
+	float troch_dy(float x0, float y0, float h0, float v, float w, float d1omega, float t);
+	float troch_curv(float x0, float y0, float h0, float v, float w, float d1omega, float t);
 
 	/*
 	 * Computes the lateral acceleration and airspeed references necessary to track

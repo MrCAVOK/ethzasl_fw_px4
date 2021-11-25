@@ -278,6 +278,10 @@ MissionBlock::is_mission_item_reached()
 			_waypoint_yaw_reached = true;
 			_time_wp_reached = now;
 
+		} else if (_mission_item.nav_cmd == NAV_CMD_WAYPOINT_USER_1){
+			// TODO: Check subsription to segment_complete in npfg_status msg
+			_waypoint_position_reached = true;
+			_time_wp_reached = now;
 		} else {
 			/*normal mission items */
 
@@ -611,6 +615,27 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		} else {
 			sp->alt = _navigator->get_global_position()->alt;
 		}
+
+	case NAV_CMD_WAYPOINT_USER_1:
+	{
+		sp->type = position_setpoint_s::SETPOINT_TYPE_TROCHOID;
+		sp->vx = item.time_inside;
+		sp->yaw = item.yaw; // Yaw population already done in common function actions
+
+		// Decoding of incoming union values
+		// Vw and psi_w
+		union u_parameter_t u_parameter1 = {};
+    		u_parameter1.f32_encoded = item.acceptance_radius;
+    		sp->vy = u_parameter1.u16_magnitude/(100.0f);
+		sp->yawspeed = u_parameter1.u16_heading/(100.0f);
+
+		// Va and psi_0
+		union u_parameter_t u_parameter2 = {};
+    		u_parameter2.f32_encoded = item.loiter_radius;
+    		sp->vz = u_parameter2.u16_magnitude/(100.0f);
+		sp->loiter_radius = u_parameter2.u16_heading/(100.0f);
+		break;
+	}
 
 	// FALLTHROUGH
 	case NAV_CMD_LOITER_TIME_LIMIT:

@@ -1399,6 +1399,14 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->circle_radius = mavlink_mission_item->param1;
 			break;
 
+		case NAV_CMD_WAYPOINT_USER_1:
+			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			mission_item->time_inside = mavlink_mission_item->param1;
+			mission_item->acceptance_radius = mavlink_mission_item->param2;
+			mission_item->loiter_radius = mavlink_mission_item->param3;
+			mission_item->yaw = mavlink_mission_item->param4;
+			break;
+
 		case MAV_CMD_NAV_RALLY_POINT:
 			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
 			break;

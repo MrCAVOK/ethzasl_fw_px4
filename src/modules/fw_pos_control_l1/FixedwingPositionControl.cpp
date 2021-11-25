@@ -1041,7 +1041,56 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 						   false,
 						   radians(_param_fw_p_lim_min.get()));
 
-		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_LAND) {
+		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_TROCHOID) {
+			/* waypoint is a trochoid segment */
+			// TODO: Adjust for the us with trochoid waypoints:
+			// - Subscription to bool for segment endpoint is reached
+			// - Keep necessary values for TECS update step
+
+			// Parameters for trochoid segment
+			float T = pos_sp_curr.vx;
+			float signed_omega = pos_sp_curr.yaw;
+			float Vw = pos_sp_curr.vy;
+			// float psi_w = pos_sp_curr.yawspeed;	// currently not used
+			float Va = pos_sp_curr.vz;
+			float psi_0 = pos_sp_curr.loiter_radius;
+			float x0 = pos_sp_curr.lat;
+			float y0 = pos_sp_curr.lon;
+
+			float alt_sp = pos_sp_curr.alt;
+			float target_airspeed = calculate_target_airspeed(mission_airspeed, ground_speed);
+
+			if (_param_fw_use_npfg.get()) {
+				_npfg.setAirspeedNom(target_airspeed);
+				_npfg.setAirspeedMax(_param_fw_airspd_max.get());
+				// use _param_npfg_sampling_time instead of hard programmed value
+				_npfg.navigateTrochoid(x0, y0, psi_0, Va, Vw, signed_omega, 0.5f, T,
+                                curr_pos, ground_speed, _wind_vel);
+				// TODO: check if segment complete with getSegmentComplete method and transfer it to npfg_status msg
+				_att_sp.roll_body = _npfg.getRollSetpoint();
+				_att_sp.yaw_body = _npfg.getBearing();
+				target_airspeed = _npfg.getAirspeedRef();
+
+			} else {
+				// Fixed loiter procedure for case L1 is used
+				float loiter_radius = 100.0f;
+				int8_t loiter_direction = 1;
+				_l1_control.navigate_loiter(curr_wp, curr_pos, loiter_radius, loiter_direction, nav_speed_2d);
+				_att_sp.roll_body = _l1_control.get_roll_setpoint();
+				_att_sp.yaw_body = _l1_control.nav_bearing();
+			}
+
+			tecs_update_pitch_throttle(now, alt_sp,
+						   target_airspeed,
+						   radians(_param_fw_p_lim_min.get()),
+						   radians(_param_fw_p_lim_max.get()),
+						   tecs_fw_thr_min,
+						   tecs_fw_thr_max,
+						   tecs_fw_mission_throttle,
+						   false,
+						   radians(_param_fw_p_lim_min.get()));
+
+		}else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 			control_landing(now, curr_pos, ground_speed, pos_sp_prev, pos_sp_curr);
 
 		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {

@@ -577,6 +577,218 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
 	updateRollSetpoint();
 } // navigateLoiter
 
+
+/*
+ * Function to calculate a trochoid segment based on the minmum parameter representation
+ */
+/*
+ * TODO: Currently editing:
+ * - Use const where possible
+ *
+ * Adjustements from the version in testbed:
+ * - Changed to cosf and sinf
+ * - Replaced Eigen with Matrix
+ * - Used <= instead of == to compare float
+ *
+ * */
+void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
+                                const float omega, const float dt, const float T,
+                                const Vector2f &veh_pos, const Vector2f &ground_vel,
+                                const Vector2f &wind_vel)
+{
+
+    // General parameters --------------------------------------------------------------------------------------------
+    bool wp_switching = false;
+
+    // Startup -------------------------------------------------------------------------------------------------------
+    // Detect if new segment is started and do initial calculations
+    if (wp_dt_ <= 0.0f){
+        wp_dt_ = T / ceil(T / dt);  // calculate adjusted inter-sampling distance
+        wp_curr_ = 0;               // reset wp counter
+        segment_complete_ = false;  // reset segment complete flag
+        // Calculate initial three waypoints from segment start
+        wp1_ = Vector2f{troch_x(x0, y0, h0, v, w, omega, wp_curr_*wp_dt_),
+                        troch_y(x0, y0, h0, v, w, omega, wp_curr_*wp_dt_)};
+        wp2_ = Vector2f{troch_x(x0, y0, h0, v, w, omega, (wp_curr_+1)*wp_dt_),
+                        troch_y(x0, y0, h0, v, w, omega, (wp_curr_+1)*wp_dt_)};
+        wp3_ = Vector2f{troch_x(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_),
+                        troch_y(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_)};
+    }
+
+    // Waypoint switching ---------------------------------------------------------------------------------------------
+    // Calculate all necessary vectors to built the bisector two switch to next sector
+    Vector2f q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();     // current segment vector
+    Vector2f q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
+    Vector2f q_bis_next = (q_curr + q_next) / (q_curr - q_next).norm(); // next bisector vector
+
+    // Check if vehicle is on or beyond bisector plane H [pow_uav in H(wp2_, q_bisect)]
+    // Exception: For last segment check if vehicle is beyond segment normal
+
+    // last segment (to adjust if segments should be switched earlier)
+    if ((wp_curr_+1)*wp_dt_ >= T){
+        if ((veh_pos - (wp2_+0.0*(wp1_-wp2_))).dot(q_curr) > 0){
+            wp_curr_ += 1;
+            wp_switching = true;
+        }
+    }
+    // all other segments
+    else{
+        if ((veh_pos - wp2_).dot(q_bis_next) > 0){
+            wp_curr_ += 1;
+            wp_switching = true;
+        }
+    }
+
+    // Check if final segment point is reached
+    if (wp_curr_ * wp_dt_ >= T){
+        wp_dt_ = 0.0f;   // reset inter-sampling distance to zero to reset segment function
+        segment_complete_ = true;     // set segment complete flag true
+    }
+
+    // Redefine new waypoints if waypoint switching occurred (shift back and calculate new waypoint)
+    if (wp_switching == true){
+        wp0_ = wp1_;
+        wp1_ = wp2_;
+        wp2_ = wp3_;
+        wp3_ = Vector2f{troch_x(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_),
+                        troch_y(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_)};
+    }
+
+    // Path following ------------------------------------------------------------------------------------------------
+
+    // determine vectors for segment sector
+
+    // last segment vector (for first segment take path normal)
+    Vector2f q_last;    // past segment
+
+    // build past segment
+    // first segment
+    if (wp_curr_ == 0){
+        q_last = Vector2f{q_curr(1), -q_curr(0)};
+    }
+    // all other segments
+    else{
+        Vector2f q_last_int = (wp1_ - wp0_) / (wp1_ - wp0_).norm();
+        q_last = (q_curr + q_last_int) / (q_last_int + q_curr).norm();
+    }
+
+    // Reevaluate vectors after waypoint switching
+    q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();      // current segment vector
+    q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
+
+    Vector2f q_segment_first = (q_curr - q_last).normalized();  // first bisector spanning sector
+    Vector2f q_segment_second = (q_next - q_curr).normalized(); // second bisector spanning sector
+
+    // Version with use of Hyperplane of Eigen library (not usable on PX4)
+    /*
+    const Hyperplane<float,2> sector_line1 = Hyperplane<float,2>::Through(wp1_, wp1_+q_segment_first);   // first line of sector
+    const Hyperplane<float,2> sector_line2 = Hyperplane<float,2>::Through(wp2_, wp2_+q_segment_second);   // second line of sector
+
+    Vector2f sector_origin = sector_line1.intersection(sector_line2);   // origin point of the sector
+    */
+
+    // determine segment sector
+   // Parametrization of first sector line
+   float a1 = (wp1_+q_segment_first)(1) - wp1_(1);
+   float b1 = wp1_(0) - (wp1_+q_segment_first)(0);
+   float c1 = a1*wp1_(0) + b1*wp1_(1);
+
+   // Parametrization of second sector line
+   float a2 = (wp2_+q_segment_second)(1) - wp2_(1);
+   float b2 = wp2_(0) - (wp2_+q_segment_second)(0);
+   float c2 = a2*wp2_(0) + b2*wp2_(1);
+
+   float det =  a1*b2 - a2*b1;  // determinant
+   Vector2f sector_origin((b2*c1 - b1*c2)/det, (a1*c2 - a2*c1)/det);   // origin point of the sector
+
+   // Version with use of Hyperplane of Eigen library (not usable on PX4)
+    /*
+   const Hyperplane<float,2> origin_vehicle = Hyperplane<float,2>::Through(sector_origin, sector_origin+(veh_pos-sector_origin));  // from sector origin to vehicle
+   const Hyperplane<float,2> segment_line = Hyperplane<float,2>::Through(wp1_, wp2_); // line of current segment
+
+   Vector2f segment_intersection = origin_vehicle.intersection(segment_line);   // closest point of segment
+    */
+
+    // Parametrization of line from sector origin to vehicle position
+    float a3 = (sector_origin+(veh_pos-sector_origin))(1) - sector_origin(1);
+    float b3 = sector_origin(0) - (sector_origin+(veh_pos-sector_origin))(0);
+    float c3 = a3*sector_origin(0) + b3*sector_origin(1);
+
+    // Parametrization of line of current segment
+    float a4 = wp2_(1) - wp1_(1);
+    float b4 = wp1_(0) - wp2_(0);
+    float c4 = a4*wp1_(0) + b4*wp1_(1);
+
+    float det2 =  a3*b4 - a4*b3;  // determinant
+    Vector2f segment_intersection((b4*c3 - b3*c4)/det2, (a3*c4 - a4*c3)/det2);   // intersection point on the segment
+
+   float segment_length = (wp2_ - wp1_).norm();    // length of current segment
+   float segment_distance = (segment_intersection - wp1_).norm();  // segment distance to intersection point
+
+   float sigma = segment_distance / segment_length;    // calculate sigma to approx current time
+   float t_sigma = sigma * wp_dt_;     // approximate segment time
+   float t_curr = wp_curr_ * wp_dt_ + t_sigma;   // current time approximation for control input calculation
+
+   // Compute control inputs ------------------------------------------------------------------------------------
+
+   // Closest point on path
+   Vector2f closest_point_on_path(troch_x(x0, y0, h0, v, w, omega, t_curr),
+                                  troch_y(x0, y0, h0, v, w, omega, t_curr));
+
+   // Tangent at closest point
+   Vector2f path_tangent(troch_dx(x0, y0, h0, v, w, omega, t_curr),
+                            troch_dy(x0, y0, h0, v, w, omega, t_curr));
+
+   // Control output tangent
+   unit_path_tangent_ = path_tangent.normalized();
+
+   // Control output curvature (curvature at closest point)
+   path_curvature_ = troch_curv(x0, y0, h0, v, w, omega, t_curr);
+
+   // Build path normal to determine sign track error
+   Vector2f path_normal((path_curvature_>0 ? -1 : 1) * path_tangent(1),
+                        -(path_curvature_>0 ? -1 : 1) * path_tangent(0));
+
+   // Vehicle distance to closest point
+   float track_error = (veh_pos - closest_point_on_path).norm();
+
+   // Sign the track error [inside curvature + / outside curvature -]
+   signed_track_error_ = ((veh_pos - closest_point_on_path).dot(path_normal) > 0 ? 1.0 : -1.0) * track_error;
+
+
+   // Handover to controller -------------------------------------------------------------------------------------
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);
+   updateRollSetpoint();
+
+} // navigateTrochoid()
+
+// Functions to calculate trochoid paths
+// Calculate x-position
+float NPFGPX4N::troch_x(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return (v/d1omega)*(sinf(d1omega*t+h0) - sinf(h0)) + w*t + x0;
+}
+
+// Calculate y-position
+float NPFGPX4N::troch_y(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return -(v/d1omega)*(cosf(d1omega*t + h0) - cosf(h0)) + y0;
+}
+
+// Calculate dx (tangent)
+float NPFGPX4N::troch_dx(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return v*cosf(d1omega*t+h0) + w;
+}
+
+// Calculate dy (tangent)
+float NPFGPX4N::troch_dy(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return v*sinf(d1omega*t+h0);
+}
+
+// Calculate curvature
+float NPFGPX4N::troch_curv(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return (v*d1omega*(v + w*cosf(d1omega*t+h0)))/(pow((pow(v, 2)+2*v*w*cosf(d1omega*t+h0)+pow(w, 2)),1.5));
+}
+
+
 void NPFG::navigateHeading(float heading_ref, const Vector2f &ground_vel, const Vector2f &wind_vel)
 {
 	path_type_loiter_ = false;

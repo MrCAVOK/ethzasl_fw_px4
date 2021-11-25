@@ -52,6 +52,20 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/vtol_vehicle_status.h>
+#include <uORB/topics/npfg_status.h>
+#include <uORB/Subscription.hpp>
+
+// Union structure to decode recieved union values
+union u_parameter_t
+{
+struct {
+	uint16_t u16_heading;      // heading in centi-degree from 0 - 35999 centi-degree
+	uint16_t u16_magnitude;   // magnitude in cm/s
+};
+
+float f32_encoded;
+};
+
 
 class Navigator;
 
@@ -153,4 +167,5 @@ protected:
 	hrt_abstime _time_wp_reached{0};
 
 	uORB::Publication<actuator_controls_s>	_actuator_pub{ORB_ID(actuator_controls_2)};
+	uORB::Subscription _npfg_status_sub{ORB_ID(npfg_status)};
 };
