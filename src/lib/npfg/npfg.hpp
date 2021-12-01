@@ -267,7 +267,7 @@ public:
 	// Helper functions included: troch_x, troch_y, troch_dx, troch_dy, troch_curv
 	void navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
 					const float omega, const float dt, const float T,
-					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
+					const matrix::Vector2d &veh_pos, const matrix::Vector2f &ground_vel,
 					const matrix::Vector2f &wind_vel);
 
 

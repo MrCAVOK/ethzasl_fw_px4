@@ -1065,7 +1065,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			if (_param_fw_use_npfg.get()) {
 				_npfg.setAirspeedNom(target_airspeed);
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get());
-				// use _param_npfg_sampling_time instead of hard programmed value
+				// TODO: use _param_npfg_sampling_time instead of hard programmed value
 				_npfg.navigateTrochoid(x0, y0, psi_0, Va, Vw, signed_omega, 0.5f, T,
                                 curr_pos, ground_speed, _wind_vel);
 				// TODO: check if segment complete with getSegmentComplete method and transfer it to npfg_status msg

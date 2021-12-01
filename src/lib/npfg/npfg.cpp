@@ -584,6 +584,8 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
 /*
  * TODO: Currently editing:
  * - Use const where possible
+ * - Adjust the use of .norm() in entire function
+ * - Get solution for veh_pos Vector2d and waypoint as Vector2f
  *
  * Adjustements from the version in testbed:
  * - Changed to cosf and sinf
@@ -593,10 +595,11 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
  * */
 void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
                                 const float omega, const float dt, const float T,
-                                const Vector2f &veh_pos, const Vector2f &ground_vel,
+                                const Vector2d &veh_pos, const Vector2f &ground_vel,
                                 const Vector2f &wind_vel)
 {
-
+    // Test casting
+    Vector2f veh_pos_f = static_cast<Vector2f>(veh_pos);
     // General parameters --------------------------------------------------------------------------------------------
     bool wp_switching = false;
 
@@ -617,16 +620,26 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // Waypoint switching ---------------------------------------------------------------------------------------------
     // Calculate all necessary vectors to built the bisector two switch to next sector
-    Vector2f q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();     // current segment vector
-    Vector2f q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
-    Vector2f q_bis_next = (q_curr + q_next) / (q_curr - q_next).norm(); // next bisector vector
+    Vector2f q_curr_temp = wp2_ - wp1_;
+    Vector2f q_curr = q_curr_temp / q_curr_temp.norm();	 // current segment vector
+    // Not working due to error: error: ‘class matrix::Matrix<float, 2, 1>’ has no member named ‘norm’
+    // Vector2f q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();     // current segment vector
+
+    Vector2f q_next_temp = wp3_ - wp2_;
+    Vector2f q_next = q_next_temp / q_next_temp.norm();      // next segment vector
+    // Vector2f q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
+
+    Vector2f q_bis_next_temp1 = q_curr + q_next;
+    Vector2f q_bis_next_temp2 = q_curr - q_next;
+    Vector2f q_bis_next = q_bis_next_temp1 / q_bis_next_temp2.norm(); // next bisector vector
+    // Vector2f q_bis_next = (q_curr + q_next) / (q_curr - q_next).norm(); // next bisector vector
 
     // Check if vehicle is on or beyond bisector plane H [pow_uav in H(wp2_, q_bisect)]
     // Exception: For last segment check if vehicle is beyond segment normal
 
     // last segment (to adjust if segments should be switched earlier)
     if ((wp_curr_+1)*wp_dt_ >= T){
-        if ((veh_pos - (wp2_+0.0*(wp1_-wp2_))).dot(q_curr) > 0){
+        if ((veh_pos - wp2_)).dot(q_curr) > 0){
             wp_curr_ += 1;
             wp_switching = true;
         }
@@ -849,6 +862,8 @@ Vector2f NPFG::getLocalPlanarVector(const Vector2d &origin, const Vector2d &targ
 		static_cast<float>(y_angle *x_origin_cos * CONSTANTS_RADIUS_OF_EARTH),
 	};
 } // getLocalPlanarVector
+
+// TODO: Implement getLocalPlanarVector for use with Vector2d and Vector2f
 
 void NPFG::updateRollSetpoint()
 {
