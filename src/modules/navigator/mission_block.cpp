@@ -280,7 +280,15 @@ MissionBlock::is_mission_item_reached()
 
 		} else if (_mission_item.nav_cmd == NAV_CMD_WAYPOINT_USER_1){
 			// TODO: Check subsription to segment_complete in npfg_status msg
-			_waypoint_position_reached = true;
+
+			// Check if topic got updated
+			if(_npfg_status_sub.updated()) {
+				npfg_status_s npfg_status = {};
+				_npfg_status_sub.copy(&npfg_status);
+				// you can now access npfg_status
+				_waypoint_position_reached = npfg_status.segment_complete;
+			}
+
 			_time_wp_reached = now;
 		} else {
 			/*normal mission items */
