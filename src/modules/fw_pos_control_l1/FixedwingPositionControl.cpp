@@ -1053,11 +1053,22 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			float T = pos_sp_curr.vx;
 			float signed_omega = pos_sp_curr.yaw;
 			float Vw = pos_sp_curr.vy;
-			// float psi_w = pos_sp_curr.yawspeed;	// currently not used
+			// float psi_w = pos_sp_curr.yawspeed;	// currently not used (psi_w = 0 in navigateTrochoid)
 			float Va = pos_sp_curr.vz;
 			float psi_0 = pos_sp_curr.loiter_radius;
-			float x0 = pos_sp_curr.lat;
-			float y0 = pos_sp_curr.lon;
+
+			// TODO: Only call when ref_pos updated
+			// Projection of current setpoint lat and lon to local coordinate system
+			struct map_projection_reference_s ref_pos;
+			map_projection_init(&ref_pos, _local_pos.ref_lat, _local_pos.ref_lon);
+			float x0;
+			float y0;
+			map_projection_project(&ref_pos, pos_sp_curr.lat, pos_sp_curr.lon, &x0, &y0);
+
+			// Get vehicle position in local coordinate system
+			float curr_pos_x = _local_pos.x;
+			float curr_pos_y = _local_pos.y;
+			Vector2f curr_pos_local{curr_pos_x, curr_pos_y};
 
 			float alt_sp = pos_sp_curr.alt;
 			float target_airspeed = calculate_target_airspeed(mission_airspeed, ground_speed);
@@ -1067,8 +1078,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get());
 				// TODO: use _param_npfg_sampling_time instead of hard programmed value
 				_npfg.navigateTrochoid(x0, y0, psi_0, Va, Vw, signed_omega, 0.5f, T,
-                                curr_pos, ground_speed, _wind_vel);
-				// TODO: check if segment complete with getSegmentComplete method and transfer it to npfg_status msg
+                                curr_pos_local, ground_speed, _wind_vel);
 				_att_sp.roll_body = _npfg.getRollSetpoint();
 				_att_sp.yaw_body = _npfg.getBearing();
 				target_airspeed = _npfg.getAirspeedRef();
@@ -2021,6 +2031,7 @@ FixedwingPositionControl::Run()
 			if (_pos_sp_triplet_sub.update(&_pos_sp_triplet)) {
 				// reset the altitude foh (first order hold) logic
 				_min_current_sp_distance_xy = FLT_MAX;
+				// TODO: If only one time casting to local
 			}
 		}
 

@@ -279,7 +279,6 @@ MissionBlock::is_mission_item_reached()
 			_time_wp_reached = now;
 
 		} else if (_mission_item.nav_cmd == NAV_CMD_WAYPOINT_USER_1){
-			// TODO: Check subsription to segment_complete in npfg_status msg
 
 			// Check if topic got updated
 			if(_npfg_status_sub.updated()) {
@@ -623,6 +622,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		} else {
 			sp->alt = _navigator->get_global_position()->alt;
 		}
+		break;
 
 	case NAV_CMD_WAYPOINT_USER_1:
 	{

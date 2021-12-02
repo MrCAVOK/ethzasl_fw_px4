@@ -587,7 +587,7 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
  * - Adjust the use of .norm() in entire function
  * - Get solution for veh_pos Vector2d and waypoint as Vector2f
  *
- * Adjustements from the version in testbed:
+ * Adjustements from the version in testbed made:
  * - Changed to cosf and sinf
  * - Replaced Eigen with Matrix
  * - Used <= instead of == to compare float
@@ -595,11 +595,9 @@ void NPFG::navigateLoiter(const Vector2d &loiter_center, const Vector2d &vehicle
  * */
 void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
                                 const float omega, const float dt, const float T,
-                                const Vector2d &veh_pos, const Vector2f &ground_vel,
+                                const Vector2f &veh_pos, const Vector2f &ground_vel,
                                 const Vector2f &wind_vel)
 {
-    // Test casting
-    Vector2f veh_pos_f = static_cast<Vector2f>(veh_pos);
     // General parameters --------------------------------------------------------------------------------------------
     bool wp_switching = false;
 
@@ -639,14 +637,15 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // last segment (to adjust if segments should be switched earlier)
     if ((wp_curr_+1)*wp_dt_ >= T){
-        if ((veh_pos - wp2_)).dot(q_curr) > 0){
+	// Vector2f wp2_vec_temp = veh_pos - wp2_;
+        if (((getSubtracVector(veh_pos, wp2_))).dot(q_curr) > 0){
             wp_curr_ += 1;
             wp_switching = true;
         }
     }
     // all other segments
     else{
-        if ((veh_pos - wp2_).dot(q_bis_next) > 0){
+        if ((getSubtracVector(veh_pos, wp2_)).dot(q_bis_next) > 0){
             wp_curr_ += 1;
             wp_switching = true;
         }
@@ -654,8 +653,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // Check if final segment point is reached
     if (wp_curr_ * wp_dt_ >= T){
-        wp_dt_ = 0.0f;   // reset inter-sampling distance to zero to reset segment function
-        segment_complete_ = true;     // set segment complete flag true
+        wp_dt_ = 0.0f;   	// reset inter-sampling distance to zero to reset segment function
+        segment_complete_ = true;     // set segment complete flag true (used in mission_block to detect segment complete)
     }
 
     // Redefine new waypoints if waypoint switching occurred (shift back and calculate new waypoint)
@@ -681,16 +680,16 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
     }
     // all other segments
     else{
-        Vector2f q_last_int = (wp1_ - wp0_) / (wp1_ - wp0_).norm();
-        q_last = (q_curr + q_last_int) / (q_last_int + q_curr).norm();
+        Vector2f q_last_int = (wp1_ - wp0_) / (getSubtracVector(wp1_, wp0_)).norm();
+        q_last = (q_curr + q_last_int) / (getAddVector(q_last_int, q_curr)).norm();
     }
 
     // Reevaluate vectors after waypoint switching
-    q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();      // current segment vector
-    q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
+    q_curr = (wp2_ - wp1_) / (getSubtracVector(wp2_, wp1_)).norm();      // current segment vector
+    q_next = (wp3_ - wp2_) / (getSubtracVector(wp3_, wp2_)).norm();      // next segment vector
 
-    Vector2f q_segment_first = (q_curr - q_last).normalized();  // first bisector spanning sector
-    Vector2f q_segment_second = (q_next - q_curr).normalized(); // second bisector spanning sector
+    Vector2f q_segment_first = (getSubtracVector(q_curr, q_last)).normalized();  // first bisector spanning sector
+    Vector2f q_segment_second = (getSubtracVector(q_next, q_curr)).normalized(); // second bisector spanning sector
 
     // Version with use of Hyperplane of Eigen library (not usable on PX4)
     /*
@@ -702,13 +701,13 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // determine segment sector
    // Parametrization of first sector line
-   float a1 = (wp1_+q_segment_first)(1) - wp1_(1);
-   float b1 = wp1_(0) - (wp1_+q_segment_first)(0);
+   float a1 = (getAddVector(wp1_, q_segment_first))(1) - wp1_(1);
+   float b1 = wp1_(0) - (getAddVector(wp1_, q_segment_first))(0);
    float c1 = a1*wp1_(0) + b1*wp1_(1);
 
    // Parametrization of second sector line
-   float a2 = (wp2_+q_segment_second)(1) - wp2_(1);
-   float b2 = wp2_(0) - (wp2_+q_segment_second)(0);
+   float a2 = (getAddVector(wp2_, q_segment_second))(1) - wp2_(1);
+   float b2 = wp2_(0) - (getAddVector(wp2_, q_segment_second))(0);
    float c2 = a2*wp2_(0) + b2*wp2_(1);
 
    float det =  a1*b2 - a2*b1;  // determinant
@@ -723,8 +722,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
     */
 
     // Parametrization of line from sector origin to vehicle position
-    float a3 = (sector_origin+(veh_pos-sector_origin))(1) - sector_origin(1);
-    float b3 = sector_origin(0) - (sector_origin+(veh_pos-sector_origin))(0);
+    float a3 = (getAddVector(sector_origin, (veh_pos-sector_origin)))(1) - sector_origin(1);
+    float b3 = sector_origin(0) - (getAddVector(sector_origin, (veh_pos-sector_origin)))(0);
     float c3 = a3*sector_origin(0) + b3*sector_origin(1);
 
     // Parametrization of line of current segment
@@ -735,8 +734,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
     float det2 =  a3*b4 - a4*b3;  // determinant
     Vector2f segment_intersection((b4*c3 - b3*c4)/det2, (a3*c4 - a4*c3)/det2);   // intersection point on the segment
 
-   float segment_length = (wp2_ - wp1_).norm();    // length of current segment
-   float segment_distance = (segment_intersection - wp1_).norm();  // segment distance to intersection point
+   float segment_length = (getSubtracVector(wp2_, wp1_)).norm();    // length of current segment
+   float segment_distance = (getSubtracVector(segment_intersection, wp1_)).norm();  // segment distance to intersection point
 
    float sigma = segment_distance / segment_length;    // calculate sigma to approx current time
    float t_sigma = sigma * wp_dt_;     // approximate segment time
@@ -763,10 +762,10 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
                         -(path_curvature_>0 ? -1 : 1) * path_tangent(0));
 
    // Vehicle distance to closest point
-   float track_error = (veh_pos - closest_point_on_path).norm();
+   float track_error = (getSubtracVector(veh_pos, closest_point_on_path)).norm();
 
    // Sign the track error [inside curvature + / outside curvature -]
-   signed_track_error_ = ((veh_pos - closest_point_on_path).dot(path_normal) > 0 ? 1.0 : -1.0) * track_error;
+   signed_track_error_ = ((getSubtracVector(veh_pos, closest_point_on_path)).dot(path_normal) > 0 ? 1.0f : -1.0f) * track_error;
 
 
    // Handover to controller -------------------------------------------------------------------------------------
@@ -777,28 +776,28 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
 // Functions to calculate trochoid paths
 // Calculate x-position
-float NPFGPX4N::troch_x(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+float NPFG::troch_x(float x0, float y0, float h0, float v, float w, float d1omega, float t){
    return (v/d1omega)*(sinf(d1omega*t+h0) - sinf(h0)) + w*t + x0;
 }
 
 // Calculate y-position
-float NPFGPX4N::troch_y(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+float NPFG::troch_y(float x0, float y0, float h0, float v, float w, float d1omega, float t){
    return -(v/d1omega)*(cosf(d1omega*t + h0) - cosf(h0)) + y0;
 }
 
 // Calculate dx (tangent)
-float NPFGPX4N::troch_dx(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+float NPFG::troch_dx(float x0, float y0, float h0, float v, float w, float d1omega, float t){
    return v*cosf(d1omega*t+h0) + w;
 }
 
 // Calculate dy (tangent)
-float NPFGPX4N::troch_dy(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+float NPFG::troch_dy(float x0, float y0, float h0, float v, float w, float d1omega, float t){
    return v*sinf(d1omega*t+h0);
 }
 
 // Calculate curvature
-float NPFGPX4N::troch_curv(float x0, float y0, float h0, float v, float w, float d1omega, float t){
-   return (v*d1omega*(v + w*cosf(d1omega*t+h0)))/(pow((pow(v, 2)+2*v*w*cosf(d1omega*t+h0)+pow(w, 2)),1.5));
+float NPFG::troch_curv(float x0, float y0, float h0, float v, float w, float d1omega, float t){
+   return (v*d1omega*(v + w*cosf(d1omega*t+h0)))/(powf((powf(v, 2)+2*v*w*cosf(d1omega*t+h0)+powf(w, 2)),1.5));
 }
 
 
@@ -863,7 +862,30 @@ Vector2f NPFG::getLocalPlanarVector(const Vector2d &origin, const Vector2d &targ
 	};
 } // getLocalPlanarVector
 
-// TODO: Implement getLocalPlanarVector for use with Vector2d and Vector2f
+// Test function to cast Vector2d to Vector2f
+Vector2f NPFG::castVector2dtoVector2f(const Vector2d &origin)
+{
+	// Static cast entries to float and return Vector2f
+	return Vector2f{
+		static_cast<float>(origin(0)),
+		static_cast<float>(origin(1)),
+	};
+}
+
+// Test function to subtract two Vector2f and explicitly return Vector2f instead of matrix
+Vector2f NPFG::getSubtracVector(const Vector2f &target, const Vector2f & origin){
+	return Vector2f{
+		static_cast<float>(target(0) - origin(0)),
+		static_cast<float>(target(1) - origin(1)),
+	};
+}
+// Test function to subtract two Vector2f and explicitly return Vector2f instead of matrix
+Vector2f NPFG::getAddVector(const Vector2f &target, const Vector2f & origin){
+	return Vector2f{
+		static_cast<float>(target(0) + origin(0)),
+		static_cast<float>(target(1) + origin(1)),
+	};
+}
 
 void NPFG::updateRollSetpoint()
 {

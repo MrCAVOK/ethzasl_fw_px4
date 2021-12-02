@@ -267,7 +267,7 @@ public:
 	// Helper functions included: troch_x, troch_y, troch_dx, troch_dy, troch_curv
 	void navigateTrochoid(const float x0, const float y0, const float h0, const float v, const float w,
 					const float omega, const float dt, const float T,
-					const matrix::Vector2d &veh_pos, const matrix::Vector2f &ground_vel,
+					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
 					const matrix::Vector2f &wind_vel);
 
 
@@ -414,7 +414,7 @@ private:
 	matrix::Vector2f unit_path_tangent_{matrix::Vector2f{1.0f, 0.0f}}; // unit path tangent vector
 	float signed_track_error_{0.0f}; // signed track error [m]
 	matrix::Vector2f bearing_vec_{matrix::Vector2f{1.0f, 0.0f}}; // bearing unit vector
-	float path_curvature__{0.0f};    // path curvature [1/m]
+	float path_curvature_{0.0f};    // path curvature [1/m]
 	// specific path following states for trochoid segments
 	matrix::Vector2f wp0_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 1 for trochoid segment navigation
 	matrix::Vector2f wp1_{matrix::Vector2f{0.0f, 0.0f}}; // waypoint 1 for trochoid segment navigation
@@ -748,6 +748,11 @@ private:
 	 * @return The vector in meters pointing from the reference position to the coordinates
 	 */
 	matrix::Vector2f getLocalPlanarVector(const matrix::Vector2d &origin, const matrix::Vector2d &target) const;
+
+	// TODO: Test function for vector casting
+	matrix::Vector2f castVector2dtoVector2f(const matrix::Vector2d &origin);
+	matrix::Vector2f getSubtracVector(const matrix::Vector2f &target, const matrix::Vector2f & origin);
+	matrix::Vector2f getAddVector(const matrix::Vector2f &target, const matrix::Vector2f & origin);
 
 	/**
 	 * [Copied directly from ECL_L1_Pos_Controller]
