@@ -107,7 +107,7 @@ PARAM_DEFINE_INT32(FW_USE_NPFG, 0);
  * @increment 0.5
  * @group FW NPFG Control
  */
-PARAM_DEFINE_FLOAT(NPFG_PERIOD, 20.0f);
+PARAM_DEFINE_FLOAT(NPFG_PERIOD, 10.0f);
 
 /**
  * NPFG damping ratio
@@ -131,7 +131,7 @@ PARAM_DEFINE_FLOAT(NPFG_DAMPING, 0.7f);
  * @boolean
  * @group FW NPFG Control
  */
-PARAM_DEFINE_INT32(NPFG_LB_PERIOD, 1);
+PARAM_DEFINE_INT32(NPFG_LB_PERIOD, 0);
 
 /**
  * Enable automatic upper bound on the NPFG period
@@ -141,7 +141,7 @@ PARAM_DEFINE_INT32(NPFG_LB_PERIOD, 1);
  * @boolean
  * @group FW NPFG Control
  */
-PARAM_DEFINE_INT32(NPFG_UB_PERIOD, 1);
+PARAM_DEFINE_INT32(NPFG_UB_PERIOD, 0);
 
 /**
  * Ramp in automatic period adaptations with track proximity

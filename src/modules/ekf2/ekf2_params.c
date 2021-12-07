@@ -328,7 +328,7 @@ PARAM_DEFINE_FLOAT(EKF2_MAG_E_NOISE, 1.0e-3f);
  * @unit m/s^2
  * @decimal 3
  */
-PARAM_DEFINE_FLOAT(EKF2_WIND_NOISE, 1.0e-1f);
+PARAM_DEFINE_FLOAT(EKF2_WIND_NOISE, 1.0f);
 
 /**
  * Measurement noise for gps horizontal velocity.
