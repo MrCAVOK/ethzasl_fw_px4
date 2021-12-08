@@ -1307,7 +1307,9 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 
 		switch (mavlink_mission_item->command) {
 		case MAV_CMD_NAV_WAYPOINT:
+			PX4_INFO_RAW("CMD Waypoint in Mission\n");
 			mission_item->nav_cmd = NAV_CMD_WAYPOINT;
+			PX4_INFO_RAW("nav_cmd item: %i \n", mission_item->nav_cmd);
 			mission_item->time_inside = mavlink_mission_item->param1;
 			mission_item->acceptance_radius = mavlink_mission_item->param2;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
@@ -1400,11 +1402,19 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			break;
 
 		case NAV_CMD_WAYPOINT_USER_1:
-			mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			PX4_INFO_RAW("User Waypoint in Mission\n");
+			// mission_item->nav_cmd = (NAV_CMD)mavlink_mission_item->command;
+			mission_item->nav_cmd = NAV_CMD_WAYPOINT_USER_1;
 			mission_item->time_inside = mavlink_mission_item->param1;
 			mission_item->acceptance_radius = mavlink_mission_item->param2;
 			mission_item->loiter_radius = mavlink_mission_item->param3;
 			mission_item->yaw = mavlink_mission_item->param4;
+			PX4_INFO_RAW("Transfered Params:\n");
+			PX4_INFO_RAW("NAV_CMD: %i \n", mission_item->nav_cmd);
+			PX4_INFO_RAW("Param1: %f \n", (double)mission_item->time_inside);
+			PX4_INFO_RAW("Param2: %.10f \n", (double)mission_item->acceptance_radius);
+			PX4_INFO_RAW("Param3: %.12f \n", (double)mission_item->loiter_radius);
+			PX4_INFO_RAW("Param4: %f \n", (double)mission_item->yaw);
 			break;
 
 		case MAV_CMD_NAV_RALLY_POINT:

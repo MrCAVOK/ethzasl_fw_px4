@@ -279,7 +279,7 @@ MissionBlock::is_mission_item_reached()
 			_time_wp_reached = now;
 
 		} else if (_mission_item.nav_cmd == NAV_CMD_WAYPOINT_USER_1){
-
+			PX4_INFO_RAW("is_mission_item_reached calles for NAV_CMD_WAYPOINT_USER_1\n");
 			// Check if topic got updated
 			if(_npfg_status_sub.updated()) {
 				npfg_status_s npfg_status = {};
@@ -541,7 +541,8 @@ MissionBlock::item_contains_position(const mission_item_s &item)
 	       item.nav_cmd == NAV_CMD_LOITER_TO_ALT ||
 	       item.nav_cmd == NAV_CMD_VTOL_TAKEOFF ||
 	       item.nav_cmd == NAV_CMD_VTOL_LAND ||
-	       item.nav_cmd == NAV_CMD_DO_FOLLOW_REPOSITION;
+	       item.nav_cmd == NAV_CMD_DO_FOLLOW_REPOSITION ||
+	       item.nav_cmd == NAV_CMD_WAYPOINT_USER_1;
 }
 
 bool
@@ -563,7 +564,8 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	if (!item_contains_position(item)) {
 		return false;
 	}
-
+	PX4_INFO_RAW("Mission item to PS:\n");
+	PX4_INFO_RAW("CMD Type: %i \n", item.nav_cmd);
 	sp->lat = item.lat;
 	sp->lon = item.lon;
 	sp->alt = get_absolute_altitude_for_item(item);
@@ -613,7 +615,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		break;
 
 	case NAV_CMD_LOITER_TO_ALT:
-
+		PX4_INFO_RAW("Ended in LOITER_TO_ALT!\n");
 		// initially use current altitude, and switch to mission item altitude once in loiter position
 		if (_navigator->get_loiter_min_alt() > 0.f) { // ignore _param_loiter_min_alt if smaller than 0
 			sp->alt = math::max(_navigator->get_global_position()->alt,
@@ -629,8 +631,26 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 		sp->type = position_setpoint_s::SETPOINT_TYPE_TROCHOID;
 		sp->vx = item.time_inside;
 		sp->yaw = item.yaw; // Yaw population already done in common function actions
+		// Decoding float values (curently simple float concatination)
+		// Wind values: Vw and psi_w
+		sp->vy = (int)(item.acceptance_radius / 10000) / 10;	// Vw
+		sp->yawspeed = (int)(item.acceptance_radius) % 10000 / 10;	// psi_w
 
-		// Decoding of incoming union values
+		// Va and psi_0
+		sp->vz = (int)(item.loiter_radius / 10000) / 10;		// Va
+		sp->loiter_radius = (int)(item.loiter_radius) % 10000 / 10;	// psi_0
+
+		// Debug
+		PX4_INFO_RAW("Setpoint generated for NAV_CMD_WAYPOINT_USER_1\n");
+		PX4_INFO_RAW("Total time: %f \n", (double)sp->vx);
+		PX4_INFO_RAW("Wind speed: %f \n", (double)sp->vy);
+		PX4_INFO_RAW("Wind heading: %f \n", (double)sp->yawspeed);
+		PX4_INFO_RAW("Airspeed: %f \n", (double)sp->vz);
+		PX4_INFO_RAW("Initial heading: %f \n", (double)sp->loiter_radius);
+		PX4_INFO_RAW("Oriented turn rate: %f \n", (double)sp->yaw);
+
+		// Use of union decoupling (disable due to transfer issues with QGC)
+		/*
 		// Vw and psi_w
 		union u_parameter_t u_parameter1 = {};
     		u_parameter1.f32_encoded = item.acceptance_radius;
@@ -642,6 +662,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
     		u_parameter2.f32_encoded = item.loiter_radius;
     		sp->vz = u_parameter2.u16_magnitude/(100.0f);
 		sp->loiter_radius = u_parameter2.u16_heading/(100.0f);
+		*/
 		break;
 	}
 

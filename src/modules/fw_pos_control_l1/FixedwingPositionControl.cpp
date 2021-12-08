@@ -1045,14 +1045,13 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_TROCHOID) {
 			/* waypoint is a trochoid segment */
-			// TODO: Adjust for the us with trochoid waypoints:
-			// - Subscription to bool for segment endpoint is reached
-			// - Keep necessary values for TECS update step
 
+			PX4_INFO_RAW("SETPOINT_TYPE_TROCHOID \n");
 			// Parameters for trochoid segment
 			float T = pos_sp_curr.vx;
 			float signed_omega = pos_sp_curr.yaw;
 			float Vw = pos_sp_curr.vy;
+
 			// float psi_w = pos_sp_curr.yawspeed;	// currently not used (psi_w = 0 in navigateTrochoid)
 			float Va = pos_sp_curr.vz;
 			float psi_0 = pos_sp_curr.loiter_radius;
@@ -1064,16 +1063,20 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			float x0;
 			float y0;
 			map_projection_project(&ref_pos, pos_sp_curr.lat, pos_sp_curr.lon, &x0, &y0);
+			PX4_INFO_RAW("Initial position trochoid segment: %f %f \n", (double)x0, (double)y0);
 
 			// Get vehicle position in local coordinate system
 			float curr_pos_x = _local_pos.x;
 			float curr_pos_y = _local_pos.y;
-			Vector2f curr_pos_local{curr_pos_x, curr_pos_y};
+			// Changed pos for calc
+			Vector2f curr_pos_local{curr_pos_y, curr_pos_x};
+			PX4_INFO_RAW("Current pos vehicle: %f %f \n", (double)curr_pos_x, (double)curr_pos_y);
 
 			float alt_sp = pos_sp_curr.alt;
 			float target_airspeed = calculate_target_airspeed(mission_airspeed, ground_speed);
 
 			if (_param_fw_use_npfg.get()) {
+				PX4_INFO_RAW("NPFG active \n");
 				_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get() * _eas2tas);
 				// TODO: use _param_npfg_sampling_time instead of hard programmed value
@@ -1085,6 +1088,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 			} else {
 				// Fixed loiter procedure for case L1 is used
+				PX4_INFO_RAW("L1 active \n");
 				float loiter_radius = 100.0f;
 				int8_t loiter_direction = 1;
 				_l1_control.navigate_loiter(curr_wp, curr_pos, loiter_radius, loiter_direction, nav_speed_2d);
