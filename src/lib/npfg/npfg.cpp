@@ -634,7 +634,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // Check if vehicle is on or beyond bisector plane H [pow_uav in H(wp2_, q_bisect)]
     // Exception: For last segment check if vehicle is beyond segment normal
-
+	PX4_INFO_RAW("Current waypoint CNT: %i \n", wp_curr_);
+	PX4_INFO_RAW("Current waypoint POS: %f %f \n", (double)wp2_(0), (double)wp2_(1));
     // last segment (to adjust if segments should be switched earlier)
     if ((wp_curr_+1)*wp_dt_ >= T){
 	// Vector2f wp2_vec_temp = veh_pos - wp2_;

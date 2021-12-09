@@ -1062,6 +1062,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			map_projection_init(&ref_pos, _local_pos.ref_lat, _local_pos.ref_lon);
 			float x0;
 			float y0;
+			// Attention: x -north, y - east
 			map_projection_project(&ref_pos, pos_sp_curr.lat, pos_sp_curr.lon, &x0, &y0);
 			PX4_INFO_RAW("Initial position trochoid segment: %f %f \n", (double)x0, (double)y0);
 
@@ -1069,7 +1070,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			float curr_pos_x = _local_pos.x;
 			float curr_pos_y = _local_pos.y;
 			// Changed pos for calc
-			Vector2f curr_pos_local{curr_pos_y, curr_pos_x};
+			Vector2f curr_pos_local{curr_pos_x, curr_pos_y};
 			PX4_INFO_RAW("Current pos vehicle: %f %f \n", (double)curr_pos_x, (double)curr_pos_y);
 
 			float alt_sp = pos_sp_curr.alt;
