@@ -747,6 +747,9 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
    // Compute control inputs ------------------------------------------------------------------------------------
 
+   // If wp_dt is zero at this time do not calculate new control inputs, freeze last ones
+   if (wp_dt_ > 0.0f){
+
    // Closest point on path
    Vector2f closest_point_on_path(troch_x(x0, y0, h0, v, w, omega, t_curr),
                                   troch_y(x0, y0, h0, v, w, omega, t_curr));
@@ -775,6 +778,12 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
    if (path_curvature_ < 0){
 	   signed_track_error_ = - signed_track_error_;
    }
+   // Handover to controller -------------------------------------------------------------------------------------
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);
+   updateRollSetpoint();
+
+   }
+
    // Debug out
    /*
    PX4_INFO_RAW("---------------------------------------");
@@ -783,10 +792,13 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
    PX4_INFO_RAW("Signed track error: %f \n", (double)signed_track_error_);
    PX4_INFO_RAW("---------------------------------------");
    */
+   else{
+
 
    // Handover to controller -------------------------------------------------------------------------------------
-   evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, -signed_track_error_, -path_curvature_);
    updateRollSetpoint();
+   }
 
 } // navigateTrochoid()
 
