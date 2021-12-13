@@ -171,6 +171,36 @@ public:
 	float getSegmentComplete() const { return segment_complete_; }
 
 	/*
+	* @return Segment reached flag [bool]
+	*/
+	float getUnitTangentx() const { return unit_path_tangent_(0); }
+
+	/*
+	* @return Segment reached flag [bool]
+	*/
+	float getUnitTangenty() const { return unit_path_tangent_(1); }
+
+	/*
+	* @return Segment reached flag [bool]
+	*/
+	float getPathCurvature() const { return path_curvature_; }
+
+		/*
+	* @return Segment reached flag [bool]
+	*/
+	float getNxtWpx() const { return wp1_(0); }
+
+		/*
+	* @return Segment reached flag [bool]
+	*/
+	float getNxtWpy() const { return wp1_(1); }
+
+		/*
+	* @return Segment reached flag [bool]
+	*/
+	float getCurrWp() const { return wp_curr_; }
+
+	/*
 	 * @return Airspeed reference [m/s]
 	 */
 	float getAirspeedRef() const { return airspeed_ref_; }
@@ -423,6 +453,8 @@ private:
 	int wp_curr_{0};    // Current waypoint in trochoid segment
 	float wp_dt_{0.0f}; // Waypoint inter-sampling distance for trochoid segments
 	bool segment_complete_{false};   // Flag to indicate when segment is complete
+	float last_x0_{1000.0f};		// Value to save last segment value to reset for next segment
+	bool navtroch_reset_{true};		// reset flag for the navigateTrochoid function
 	/*
 	 * guidance outputs
 	 */

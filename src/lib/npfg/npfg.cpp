@@ -601,9 +601,10 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
     // General parameters --------------------------------------------------------------------------------------------
     bool wp_switching = false;
 
+
     // Startup -------------------------------------------------------------------------------------------------------
     // Detect if new segment is started and do initial calculations
-    if (wp_dt_ <= 0.0f){
+    if (wp_dt_ <= 0.0f && abs(last_x0_ - x0) >= 1.0f){
         wp_dt_ = T / ceil(T / dt);  // calculate adjusted inter-sampling distance
         wp_curr_ = 0;               // reset wp counter
         segment_complete_ = false;  // reset segment complete flag
@@ -615,6 +616,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
         wp3_ = Vector2f{troch_x(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_),
                         troch_y(x0, y0, h0, v, w, omega, (wp_curr_+2)*wp_dt_)};
     }
+	last_x0_ = x0;
+
 
     // Waypoint switching ---------------------------------------------------------------------------------------------
     // Calculate all necessary vectors to built the bisector two switch to next sector
@@ -634,8 +637,8 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
 
     // Check if vehicle is on or beyond bisector plane H [pow_uav in H(wp2_, q_bisect)]
     // Exception: For last segment check if vehicle is beyond segment normal
-	PX4_INFO_RAW("Current waypoint CNT: %i \n", wp_curr_);
-	PX4_INFO_RAW("Current waypoint POS: %f %f \n", (double)wp2_(0), (double)wp2_(1));
+	// PX4_INFO_RAW("Current waypoint CNT: %i \n", wp_curr_);
+	// PX4_INFO_RAW("Current waypoint POS: %f %f \n", (double)wp2_(0), (double)wp2_(1));
     // last segment (to adjust if segments should be switched earlier)
     if ((wp_curr_+1)*wp_dt_ >= T){
 	// Vector2f wp2_vec_temp = veh_pos - wp2_;
@@ -768,6 +771,18 @@ void NPFG::navigateTrochoid(const float x0, const float y0, const float h0, cons
    // Sign the track error [inside curvature + / outside curvature -]
    signed_track_error_ = ((getSubtracVector(veh_pos, closest_point_on_path)).dot(path_normal) > 0 ? 1.0f : -1.0f) * track_error;
 
+   // Debug orientation error
+   if (path_curvature_ < 0){
+	   signed_track_error_ = - signed_track_error_;
+   }
+   // Debug out
+   /*
+   PX4_INFO_RAW("---------------------------------------");
+   PX4_INFO_RAW("Tangent (x/y): %f %f \n", (double)unit_path_tangent_(0), (double)unit_path_tangent_(1));
+   PX4_INFO_RAW("Curvature: %f \n", (double)path_curvature_);
+   PX4_INFO_RAW("Signed track error: %f \n", (double)signed_track_error_);
+   PX4_INFO_RAW("---------------------------------------");
+   */
 
    // Handover to controller -------------------------------------------------------------------------------------
    evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);

@@ -501,6 +501,12 @@ FixedwingPositionControl::status_publish()
 		npfg_status.p_gain = _npfg.getPGain();
 		npfg_status.time_const = _npfg.getTimeConst();
 		npfg_status.segment_complete = _npfg.getSegmentComplete();
+		npfg_status.unit_tan_x = _npfg.getUnitTangentx();
+		npfg_status.unit_tan_y = _npfg.getUnitTangenty();
+		npfg_status.path_curvature = _npfg.getPathCurvature();
+		npfg_status.nxt_wp_x = _npfg.getNxtWpx();
+		npfg_status.nxt_wp_y = _npfg.getNxtWpy();
+		npfg_status.wp_cnt = _npfg.getCurrWp();
 
 	} else {
 		pos_ctrl_status.nav_bearing = _l1_control.nav_bearing();
@@ -527,6 +533,7 @@ FixedwingPositionControl::status_publish()
 	npfg_status.timestamp = hrt_absolute_time();
 
 	_pos_ctrl_status_pub.publish(pos_ctrl_status);
+	PX4_INFO_RAW("Publisher active! Value: %f\n", (double)_npfg.getSegmentComplete());
 	_npfg_status_pub.publish(npfg_status);
 }
 
@@ -1046,12 +1053,11 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 		} else if (position_sp_type == position_setpoint_s::SETPOINT_TYPE_TROCHOID) {
 			/* waypoint is a trochoid segment */
 
-			PX4_INFO_RAW("SETPOINT_TYPE_TROCHOID \n");
+			// PX4_INFO_RAW("SETPOINT_TYPE_TROCHOID \n");
 			// Parameters for trochoid segment
 			float T = pos_sp_curr.vx;
 			float signed_omega = pos_sp_curr.yaw;
 			float Vw = pos_sp_curr.vy;
-
 			// float psi_w = pos_sp_curr.yawspeed;	// currently not used (psi_w = 0 in navigateTrochoid)
 			float Va = pos_sp_curr.vz;
 			float psi_0 = pos_sp_curr.loiter_radius;
@@ -1064,24 +1070,24 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			float y0;
 			// Attention: x -north, y - east
 			map_projection_project(&ref_pos, pos_sp_curr.lat, pos_sp_curr.lon, &x0, &y0);
-			PX4_INFO_RAW("Initial position trochoid segment: %f %f \n", (double)x0, (double)y0);
+			// PX4_INFO_RAW("Initial position trochoid segment: %f %f \n", (double)x0, (double)y0);
 
 			// Get vehicle position in local coordinate system
 			float curr_pos_x = _local_pos.x;
 			float curr_pos_y = _local_pos.y;
 			// Changed pos for calc
 			Vector2f curr_pos_local{curr_pos_x, curr_pos_y};
-			PX4_INFO_RAW("Current pos vehicle: %f %f \n", (double)curr_pos_x, (double)curr_pos_y);
+			// PX4_INFO_RAW("Current pos vehicle: %f %f \n", (double)curr_pos_x, (double)curr_pos_y);
 
 			float alt_sp = pos_sp_curr.alt;
 			float target_airspeed = calculate_target_airspeed(mission_airspeed, ground_speed);
 
 			if (_param_fw_use_npfg.get()) {
-				PX4_INFO_RAW("NPFG active \n");
+				//PX4_INFO_RAW("NPFG active \n");
 				_npfg.setAirspeedNom(target_airspeed * _eas2tas);
 				_npfg.setAirspeedMax(_param_fw_airspd_max.get() * _eas2tas);
 				// TODO: use _param_npfg_sampling_time instead of hard programmed value
-				_npfg.navigateTrochoid(x0, y0, psi_0, Va, Vw, signed_omega, 0.5f, T,
+				_npfg.navigateTrochoid(x0, y0, (psi_0*3.14f)/180.0f, Va, Vw, signed_omega, 0.5f, T,
                                 curr_pos_local, ground_speed, _wind_vel);
 				_att_sp.roll_body = _npfg.getRollSetpoint();
 				_att_sp.yaw_body = _npfg.getBearing();

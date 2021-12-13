@@ -279,12 +279,12 @@ MissionBlock::is_mission_item_reached()
 			_time_wp_reached = now;
 
 		} else if (_mission_item.nav_cmd == NAV_CMD_WAYPOINT_USER_1){
-			PX4_INFO_RAW("is_mission_item_reached calles for NAV_CMD_WAYPOINT_USER_1\n");
 			// Check if topic got updated
 			if(_npfg_status_sub.updated()) {
 				npfg_status_s npfg_status = {};
 				_npfg_status_sub.copy(&npfg_status);
 				// you can now access npfg_status
+				PX4_INFO_RAW("Subscription active! Value: %f \n", (double)npfg_status.segment_complete);
 				_waypoint_position_reached = npfg_status.segment_complete;
 			}
 
