@@ -533,7 +533,7 @@ FixedwingPositionControl::status_publish()
 	npfg_status.timestamp = hrt_absolute_time();
 
 	_pos_ctrl_status_pub.publish(pos_ctrl_status);
-	PX4_INFO_RAW("Publisher active! Value: %f\n", (double)_npfg.getSegmentComplete());
+	// PX4_INFO_RAW("Publisher active! Value: %f\n", (double)_npfg.getSegmentComplete());
 	_npfg_status_pub.publish(npfg_status);
 }
 

@@ -284,7 +284,7 @@ MissionBlock::is_mission_item_reached()
 				npfg_status_s npfg_status = {};
 				_npfg_status_sub.copy(&npfg_status);
 				// you can now access npfg_status
-				PX4_INFO_RAW("Subscription active! Value: %f \n", (double)npfg_status.segment_complete);
+				// PX4_INFO_RAW("Subscription active! Value: %f \n", (double)npfg_status.segment_complete);
 				_waypoint_position_reached = npfg_status.segment_complete;
 			}
 
