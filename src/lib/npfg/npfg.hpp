@@ -300,6 +300,13 @@ public:
 					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
 					const matrix::Vector2f &wind_vel);
 
+	// Method to follow a clothoid path segment based on the minimal parameter representation
+	// Helper functions included: cloth_psi, cloth_dpsi, cloth_curv, cloth_x, cloth_y, cloth_dx, cloth_dy
+	void navigateClothoid(const float x0, const float y0, const float h0, const float v, const float w,
+					const float ubar_alpha, const float t1, const float dt, const float T, const float dt_int,
+					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
+					const matrix::Vector2f &wind_vel);
+
 
 	/*
 	 * Navigate on a fixed bearing.
@@ -483,6 +490,21 @@ private:
 	float troch_dx(float x0, float y0, float h0, float v, float w, float d1omega, float t);
 	float troch_dy(float x0, float y0, float h0, float v, float w, float d1omega, float t);
 	float troch_curv(float x0, float y0, float h0, float v, float w, float d1omega, float t);
+
+	/*
+	* Helper functions for navigateClothoid()
+	Function to calculate position, tangent and curvature of a clothoid path segment @t
+	*/
+	float cloth_psi(float h0, float ubar_alpha, float t, float tbar, float t1);
+    	float cloth_dpsi(float ubar_alpha, float t, float tbar, float t1);
+    	float cloth_curv(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1);
+    	float cloth_x(float h0, float v, float w, float ubar_alpha,
+                            float xs, float ts, float tf, float dt, float tbar, float t1);
+    	float cloth_y(float h0, float v, float w, float ubar_alpha,
+                            float ys, float ts, float tf, float dt, float tbar, float t1);
+    	float cloth_dx(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1);
+    	float cloth_dy(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1);
+
 
 	/*
 	 * Computes the lateral acceleration and airspeed references necessary to track

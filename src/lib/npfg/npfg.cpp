@@ -828,6 +828,341 @@ float NPFG::troch_curv(float x0, float y0, float h0, float v, float w, float d1o
    return (v*d1omega*(v + w*cosf(d1omega*t+h0)))/(powf((powf(v, 2)+2*v*w*cosf(d1omega*t+h0)+powf(w, 2)),1.5));
 }
 
+/*
+ * Function to calculate a clohtoid segment based on the minmum parameter representation
+ */
+/*
+ * TODO: Currently editing:
+ - xxx
+ *
+ * */
+void NPFG::navigateClothoid(const float x0, const float y0, const float h0, const float v, const float w,
+					const float ubar_alpha, const float t1, const float dt, const float T, const float dt_int,
+					const matrix::Vector2f &veh_pos, const matrix::Vector2f &ground_vel,
+					const matrix::Vector2f &wind_vel)
+{
+    // General parameters --------------------------------------------------------------------------------------------
+    bool wp_switching = false;
+
+
+    // Startup -------------------------------------------------------------------------------------------------------
+    // Detect if new segment is started and do initial calculations
+    if (wp_dt_ <= 0.0f && abs(last_x0_ - x0) >= 1.0f){
+        wp_dt_ = T / ceil(T / dt);  // calculate adjusted inter-sampling distance
+        wp_curr_ = 0;               // reset wp counter
+        segment_complete_ = false;  // reset segment complete flag
+        // Calculate initial three waypoints from segment start
+        wp1_ = Vector2f{x0,
+                        y0};
+        wp2_ = Vector2f{cloth_x(h0, v, w, ubar_alpha, wp1_(0), 0, 1*wp_dt_, dt_int, T, t1),
+                        cloth_y(h0, v, w, ubar_alpha, wp1_(1), 0, 1*wp_dt_, dt_int, T, t1)};
+        wp3_ = Vector2f{cloth_x(h0, v, w, ubar_alpha, wp2_(0), 1*wp_dt_, 2*wp_dt_, dt_int, T, t1),
+                        cloth_y(h0, v, w, ubar_alpha, wp2_(1), 1*wp_dt_, 2*wp_dt_, dt_int, T, t1)};
+    }
+	last_x0_ = x0;
+
+
+    // Waypoint switching ---------------------------------------------------------------------------------------------
+    // Calculate all necessary vectors to built the bisector two switch to next sector
+    Vector2f q_curr_temp = wp2_ - wp1_;
+    Vector2f q_curr = q_curr_temp / q_curr_temp.norm();	 // current segment vector
+    // Not working due to error: error: ‘class matrix::Matrix<float, 2, 1>’ has no member named ‘norm’
+    // Vector2f q_curr = (wp2_ - wp1_) / (wp2_ - wp1_).norm();     // current segment vector
+
+    Vector2f q_next_temp = wp3_ - wp2_;
+    Vector2f q_next = q_next_temp / q_next_temp.norm();      // next segment vector
+    // Vector2f q_next = (wp3_ - wp2_) / (wp3_ - wp2_).norm();      // next segment vector
+
+    Vector2f q_bis_next_temp1 = q_curr + q_next;
+    Vector2f q_bis_next_temp2 = q_curr - q_next;
+    Vector2f q_bis_next = q_bis_next_temp1 / q_bis_next_temp2.norm(); // next bisector vector
+    // Vector2f q_bis_next = (q_curr + q_next) / (q_curr - q_next).norm(); // next bisector vector
+
+    // Check if vehicle is on or beyond bisector plane H [pow_uav in H(wp2_, q_bisect)]
+    // Exception: For last segment check if vehicle is beyond segment normal
+	// PX4_INFO_RAW("Current waypoint CNT: %i \n", wp_curr_);
+	// PX4_INFO_RAW("Current waypoint POS: %f %f \n", (double)wp2_(0), (double)wp2_(1));
+    // last segment (to adjust if segments should be switched earlier)
+    if ((wp_curr_+1)*wp_dt_ >= T){
+	// Vector2f wp2_vec_temp = veh_pos - wp2_;
+        if (((getSubtracVector(veh_pos, wp2_))).dot(q_curr) > 0){
+            wp_curr_ += 1;
+            wp_switching = true;
+        }
+    }
+    // all other segments
+    else{
+        if ((getSubtracVector(veh_pos, wp2_)).dot(q_bis_next) > 0){
+            wp_curr_ += 1;
+            wp_switching = true;
+        }
+    }
+
+    // Check if final segment point is reached
+    if (wp_curr_ * wp_dt_ >= T){
+        wp_dt_ = 0.0f;   	// reset inter-sampling distance to zero to reset segment function
+        segment_complete_ = true;     // set segment complete flag true (used in mission_block to detect segment complete)
+    }
+
+    // Redefine new waypoints if waypoint switching occurred (shift back and calculate new waypoint)
+    if (wp_switching == true){
+        wp0_ = wp1_;
+        wp1_ = wp2_;
+        wp2_ = wp3_;
+        wp3_ = Vector2f{cloth_x(h0, v, w, ubar_alpha, wp2_(0), (wp_curr_+1)*wp_dt_, (wp_curr_+2)*wp_dt_, dt_int, T, t1),
+                        cloth_y(h0, v, w, ubar_alpha, wp2_(1), (wp_curr_+1)*wp_dt_, (wp_curr_+2)*wp_dt_, dt_int, T, t1)};
+    }
+
+    // Path following ------------------------------------------------------------------------------------------------
+
+    // determine vectors for segment sector
+
+    // last segment vector (for first segment take path normal)
+    Vector2f q_last;    // past segment
+
+    // build past segment
+    // first segment
+    if (wp_curr_ == 0){
+        q_last = Vector2f{q_curr(1), -q_curr(0)};
+    }
+    // all other segments
+    else{
+        Vector2f q_last_int = (wp1_ - wp0_) / (getSubtracVector(wp1_, wp0_)).norm();
+        q_last = (q_curr + q_last_int) / (getAddVector(q_last_int, q_curr)).norm();
+    }
+
+    // Reevaluate vectors after waypoint switching
+    q_curr = (wp2_ - wp1_) / (getSubtracVector(wp2_, wp1_)).norm();      // current segment vector
+    q_next = (wp3_ - wp2_) / (getSubtracVector(wp3_, wp2_)).norm();      // next segment vector
+
+    Vector2f q_segment_first = (getSubtracVector(q_curr, q_last)).normalized();  // first bisector spanning sector
+    Vector2f q_segment_second = (getSubtracVector(q_next, q_curr)).normalized(); // second bisector spanning sector
+
+    // Version with use of Hyperplane of Eigen library (not usable on PX4)
+    /*
+    const Hyperplane<float,2> sector_line1 = Hyperplane<float,2>::Through(wp1_, wp1_+q_segment_first);   // first line of sector
+    const Hyperplane<float,2> sector_line2 = Hyperplane<float,2>::Through(wp2_, wp2_+q_segment_second);   // second line of sector
+
+    Vector2f sector_origin = sector_line1.intersection(sector_line2);   // origin point of the sector
+    */
+
+    // determine segment sector
+   // Parametrization of first sector line
+   float a1 = (getAddVector(wp1_, q_segment_first))(1) - wp1_(1);
+   float b1 = wp1_(0) - (getAddVector(wp1_, q_segment_first))(0);
+   float c1 = a1*wp1_(0) + b1*wp1_(1);
+
+   // Parametrization of second sector line
+   float a2 = (getAddVector(wp2_, q_segment_second))(1) - wp2_(1);
+   float b2 = wp2_(0) - (getAddVector(wp2_, q_segment_second))(0);
+   float c2 = a2*wp2_(0) + b2*wp2_(1);
+
+   float det =  a1*b2 - a2*b1;  // determinant
+   Vector2f sector_origin((b2*c1 - b1*c2)/det, (a1*c2 - a2*c1)/det);   // origin point of the sector
+
+   // Version with use of Hyperplane of Eigen library (not usable on PX4)
+    /*
+   const Hyperplane<float,2> origin_vehicle = Hyperplane<float,2>::Through(sector_origin, sector_origin+(veh_pos-sector_origin));  // from sector origin to vehicle
+   const Hyperplane<float,2> segment_line = Hyperplane<float,2>::Through(wp1_, wp2_); // line of current segment
+
+   Vector2f segment_intersection = origin_vehicle.intersection(segment_line);   // closest point of segment
+    */
+
+    // Parametrization of line from sector origin to vehicle position
+    float a3 = (getAddVector(sector_origin, (veh_pos-sector_origin)))(1) - sector_origin(1);
+    float b3 = sector_origin(0) - (getAddVector(sector_origin, (veh_pos-sector_origin)))(0);
+    float c3 = a3*sector_origin(0) + b3*sector_origin(1);
+
+    // Parametrization of line of current segment
+    float a4 = wp2_(1) - wp1_(1);
+    float b4 = wp1_(0) - wp2_(0);
+    float c4 = a4*wp1_(0) + b4*wp1_(1);
+
+    float det2 =  a3*b4 - a4*b3;  // determinant
+    Vector2f segment_intersection((b4*c3 - b3*c4)/det2, (a3*c4 - a4*c3)/det2);   // intersection point on the segment
+
+   float segment_length = (getSubtracVector(wp2_, wp1_)).norm();    // length of current segment
+   float segment_distance = (getSubtracVector(segment_intersection, wp1_)).norm();  // segment distance to intersection point
+
+   float sigma = segment_distance / segment_length;    // calculate sigma to approx current time
+   float t_sigma = sigma * wp_dt_;     // approximate segment time
+   float t_curr = wp_curr_ * wp_dt_ + t_sigma;   // current time approximation for control input calculation
+
+   // Compute control inputs ------------------------------------------------------------------------------------
+
+   // If wp_dt is zero at this time do not calculate new control inputs, freeze last ones
+   if (wp_dt_ > 0.0f){
+
+   // Closest point on path
+   Vector2f closest_point_on_path(cloth_x(h0, v, w, ubar_alpha, wp1_(0), (wp_curr_)*wp_dt_, t_curr, dt_int, T, t1),
+                                   cloth_y(h0, v, w, ubar_alpha, wp1_(1), (wp_curr_)*wp_dt_, t_curr, dt_int, T, t1));
+
+   // Tangent at closest point
+   Vector2f path_tangent(cloth_dx(h0, v, w, ubar_alpha, t_curr, T, t1),
+                          cloth_dy(h0, v, w, ubar_alpha, t_curr, T, t1));
+
+   // Control output tangent
+   unit_path_tangent_ = path_tangent.normalized();
+
+   // Control output curvature (curvature at closest point)
+   path_curvature_ = cloth_curv(h0, v, w, ubar_alpha, t_curr, T, t1);
+
+   // Build path normal to determine sign track error
+   Vector2f path_normal((path_curvature_>0 ? -1 : 1) * path_tangent(1),
+                        -(path_curvature_>0 ? -1 : 1) * path_tangent(0));
+
+   // Vehicle distance to closest point
+   float track_error = (getSubtracVector(veh_pos, closest_point_on_path)).norm();
+
+   // Sign the track error [inside curvature + / outside curvature -]
+   signed_track_error_ = ((getSubtracVector(veh_pos, closest_point_on_path)).dot(path_normal) > 0 ? 1.0f : -1.0f) * track_error;
+
+   // Debug orientation error
+   if (path_curvature_ < 0){
+	   signed_track_error_ = - signed_track_error_;
+   }
+   // Handover to controller -------------------------------------------------------------------------------------
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);
+   updateRollSetpoint();
+
+   }
+
+   // Debug out
+   /*
+   PX4_INFO_RAW("---------------------------------------");
+   PX4_INFO_RAW("Tangent (x/y): %f %f \n", (double)unit_path_tangent_(0), (double)unit_path_tangent_(1));
+   PX4_INFO_RAW("Curvature: %f \n", (double)path_curvature_);
+   PX4_INFO_RAW("Signed track error: %f \n", (double)signed_track_error_);
+   PX4_INFO_RAW("---------------------------------------");
+   */
+   else{
+
+   // TODO: Really necessary policy with clothoids? Better lock current state?
+   // Handover to controller -------------------------------------------------------------------------------------
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, -signed_track_error_, -path_curvature_);
+   updateRollSetpoint();
+   }
+
+} // navigateClothoid()
+
+// Helper functions for navigateClothoid()
+// Functions to calculate clothoid paths
+// Calculate heading
+float NPFG::cloth_psi(float h0, float ubar_alpha, float t, float tbar, float t1){
+    // Max bank angle gets reached
+    if (tbar >= 2*t1){
+        // std::cout << "Max bank reached" << std::endl;
+        if (0 <= t && t < t1) {
+            return ubar_alpha * (powf(t, 2) / 2) + h0;
+        }
+        else if (t1 <= t && t < tbar-t1){
+            return ubar_alpha*t1*t+h0-ubar_alpha*powf(t1,2)/2;
+        }
+        else {
+            return ubar_alpha*(t*tbar-(powf(t,2)/2))+h0-ubar_alpha*0.5f*(2*powf(t1, 2)+powf(tbar, 2)-2*tbar*t1);
+
+        }
+    }
+        // Max bank angle gets not reached
+    else {
+        // std::cout << "Max bank not reached" << std::endl;
+        if (t <= tbar/2){
+            return ubar_alpha*(powf(t,2)/2)+h0;
+        }
+        else {
+            return ubar_alpha*(t*tbar-(powf(t,2)/2))+h0-ubar_alpha*(powf(tbar,2)/4);
+        }
+    }
+}
+
+// Calculate derivative of heading (for calculation of curvature)
+float NPFG::cloth_dpsi(float ubar_alpha, float t, float tbar, float t1){
+    // Max bank angle gets reached
+    if (tbar >= 2*t1){
+        // std::cout << "Max bank reached" << std::endl;
+        if (0 <= t && t < t1)
+            return ubar_alpha*t;
+        else if (t1 <= t && t < tbar-t1){
+            return ubar_alpha*t1;
+        }
+        else {
+            return ubar_alpha*(tbar - t);
+        }
+    }
+        // Max bank angle gets not reached
+    else {
+        // std::cout << "Max bank not reached" << std::endl;
+        if (t <= tbar/2){
+            return ubar_alpha*t;
+        }
+        else {
+            return ubar_alpha*(tbar - t);
+        }
+    }
+} // NPFGPX4N::cloth_dpsi
+
+// Calculate curvature
+float NPFG::cloth_curv(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1){
+    float psi_val = cloth_psi(h0, ubar_alpha, t, tbar, t1);
+    float dpsi_val = cloth_dpsi(ubar_alpha, t, tbar, t1);
+    float curv_num = powf(v*sinf(psi_val), 2)*dpsi_val+v*(v*cosf(psi_val)+w)*cosf(psi_val)*dpsi_val;
+    float curv_den = powf(powf(v, 2) * powf(sinf(psi_val), 2) + powf(v*cosf(psi_val)+w, 2), 1.5 );
+    float curv = curv_num / curv_den;
+    // TODO: Detected if curvature is zero and then set to certain threshold value
+    if (abs(curv) < 0.00001f){
+        return 0.0001;
+    }
+    return curv;
+} // NPFGPX4N::cloth_curv
+
+// Calculate x-position
+float NPFG::cloth_x(float h0, float v, float w, float ubar_alpha,
+                        float xs, float ts, float tf, float dt, float tbar, float t1){
+    // Initialize integral with IC
+    float x = xs;
+    float t = 0;
+    // Iterations for numerical integration
+    int N = floor((tf-ts)/dt);
+    // Integration loop
+    for (int i=1; i < N; i++){
+        // Current evaluation time
+        t= ts + i*dt;
+        // Numerical integration
+        x += (v*cosf(cloth_psi(h0, ubar_alpha, t, tbar, t1)) + w) * dt;
+    }
+    return x;
+} // NPFGPX4N::cloth_x
+
+// Calculate y-position
+float NPFG::cloth_y(float h0, float v, float w, float ubar_alpha,
+                        float ys, float ts, float tf, float dt, float tbar, float t1){
+    // Initialize integral with IC
+    float y = ys;
+    float t = 0;
+    // Iterations for numerical integration
+    int N = floor((tf-ts)/dt);
+    // Integration loop
+    for (int i=1; i < N; i++){
+        // Current evaluation time
+        t = ts + i*dt;
+        // Numerical integration
+        y += (v*sinf(cloth_psi(h0, ubar_alpha, t, tbar, t1))) * dt;
+    }
+    return y;
+} // NPFGPX4N::cloth_y
+
+// Calculate dx (tangent)
+float NPFG::cloth_dx(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1) {
+    return v*cosf(cloth_psi(h0, ubar_alpha, t, tbar, t1)) + w;
+} // NPFGPX4N::cloth_dx
+
+// Calculate dy (tangent)
+float NPFG::cloth_dy(float h0, float v, float w, float ubar_alpha, float t, float tbar, float t1) {
+    return v*sinf(cloth_psi(h0, ubar_alpha, t, tbar, t1));
+} // NPFGPX4N::cloth_dy
+
+
+
 
 void NPFG::navigateHeading(float heading_ref, const Vector2f &ground_vel, const Vector2f &wind_vel)
 {
