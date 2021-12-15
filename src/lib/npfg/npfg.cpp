@@ -832,8 +832,9 @@ float NPFG::troch_curv(float x0, float y0, float h0, float v, float w, float d1o
  * Function to calculate a clohtoid segment based on the minmum parameter representation
  */
 /*
- * TODO: Currently editing:
- - xxx
+ * TODO: Currently changed:
+ - Deactivated path curvature restriction in curv fct
+ - Earlier switching
  *
  * */
 void NPFG::navigateClothoid(const float x0, const float y0, const float h0, const float v, const float w,
@@ -899,7 +900,7 @@ void NPFG::navigateClothoid(const float x0, const float y0, const float h0, cons
     }
 
     // Check if final segment point is reached
-    if (wp_curr_ * wp_dt_ >= T){
+    if (wp_curr_ * wp_dt_ >= T - 0.1f){
         wp_dt_ = 0.0f;   	// reset inter-sampling distance to zero to reset segment function
         segment_complete_ = true;     // set segment complete flag true (used in mission_block to detect segment complete)
     }
@@ -937,6 +938,9 @@ void NPFG::navigateClothoid(const float x0, const float y0, const float h0, cons
 
     Vector2f q_segment_first = (getSubtracVector(q_curr, q_last)).normalized();  // first bisector spanning sector
     Vector2f q_segment_second = (getSubtracVector(q_next, q_curr)).normalized(); // second bisector spanning sector
+    if ((wp_curr_+1)*wp_dt_ >= T){
+	    q_segment_second = Vector2f{q_curr(1), -q_curr(0)};
+    }
 
     // Version with use of Hyperplane of Eigen library (not usable on PX4)
     /*
@@ -985,8 +989,10 @@ void NPFG::navigateClothoid(const float x0, const float y0, const float h0, cons
    float segment_distance = (getSubtracVector(segment_intersection, wp1_)).norm();  // segment distance to intersection point
 
    float sigma = segment_distance / segment_length;    // calculate sigma to approx current time
+   PX4_INFO_RAW("Seg. Length / Seg. intersection %f %f \n", (double)segment_length, (double)q_segment_first(0));
    float t_sigma = sigma * wp_dt_;     // approximate segment time
    float t_curr = wp_curr_ * wp_dt_ + t_sigma;   // current time approximation for control input calculation
+   PX4_INFO_RAW("Approx. time: %f \n", (double)t_curr);
 
    // Compute control inputs ------------------------------------------------------------------------------------
 
@@ -1039,7 +1045,8 @@ void NPFG::navigateClothoid(const float x0, const float y0, const float h0, cons
 
    // TODO: Really necessary policy with clothoids? Better lock current state?
    // Handover to controller -------------------------------------------------------------------------------------
-   evaluate(ground_vel, wind_vel, unit_path_tangent_, -signed_track_error_, -path_curvature_);
+   evaluate(ground_vel, wind_vel, unit_path_tangent_, signed_track_error_, path_curvature_);
+   PX4_INFO_RAW("End of segment hold state-------------------------------------------------");
    updateRollSetpoint();
    }
 
@@ -1060,7 +1067,6 @@ float NPFG::cloth_psi(float h0, float ubar_alpha, float t, float tbar, float t1)
         }
         else {
             return ubar_alpha*(t*tbar-(powf(t,2)/2))+h0-ubar_alpha*0.5f*(2*powf(t1, 2)+powf(tbar, 2)-2*tbar*t1);
-
         }
     }
         // Max bank angle gets not reached
@@ -1109,9 +1115,11 @@ float NPFG::cloth_curv(float h0, float v, float w, float ubar_alpha, float t, fl
     float curv_den = powf(powf(v, 2) * powf(sinf(psi_val), 2) + powf(v*cosf(psi_val)+w, 2), 1.5 );
     float curv = curv_num / curv_den;
     // TODO: Detected if curvature is zero and then set to certain threshold value
+    /*
     if (abs(curv) < 0.00001f){
         return 0.0001;
     }
+    */
     return curv;
 } // NPFGPX4N::cloth_curv
 

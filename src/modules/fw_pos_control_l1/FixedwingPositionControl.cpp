@@ -1089,11 +1089,12 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				// TODO: use _param_npfg_sampling_time instead of hard programmed value + use proper conversion from deg2rad
 				/*
 				_npfg.navigateTrochoid(x0, y0, (psi_0*3.14f)/180.0f, Va, Vw, signed_omega, 0.5f, T,
-                                curr_pos_local, ground_speed, _wind_vel);
+                                	curr_pos_local, ground_speed, _wind_vel);
 				*/
 				_npfg.navigateClothoid(x0, y0, (psi_0*3.14f)/180.0f, Va, Vw, 0.654f*signed_omega,
 				(30*2*3.14f/360) / abs(signed_omega),  0.5f, T, 0.0001f,
                                 curr_pos_local, ground_speed, _wind_vel);
+
 				_att_sp.roll_body = _npfg.getRollSetpoint();
 				_att_sp.yaw_body = _npfg.getBearing();
 				target_airspeed = _npfg.getAirspeedRef() / _eas2tas;
