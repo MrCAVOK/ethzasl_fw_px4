@@ -419,7 +419,7 @@ FixedwingPositionControl::calculate_target_airspeed(float airspeed_demand, const
 	}
 
 	// groundspeed undershoot
-	bool not_using_wind_est = !_param_fw_use_npfg.get() || !_wind_valid;
+	const bool not_using_wind_est = !_param_fw_use_npfg.get() || !_wind_valid;
 
 	if (!_l1_control.circle_mode() && not_using_wind_est) {
 		/*
@@ -530,7 +530,7 @@ FixedwingPositionControl::status_publish()
 
 		npfg_status.wind_est_valid = _wind_valid;
 
-		float bearing = _npfg.getBearing(); // dont repeat atan2 calc
+		const float bearing = _npfg.getBearing(); // dont repeat atan2 calc
 
 		pos_ctrl_status.nav_bearing = bearing;
 		pos_ctrl_status.target_bearing = _npfg.targetBearing();
@@ -1246,7 +1246,7 @@ FixedwingPositionControl::control_auto_loiter(const hrt_abstime &now, const Vect
 		loiter_direction = (loiter_radius > 0) ? 1 : -1;
 	}
 
-	bool in_circle_mode = (_param_fw_use_npfg.get() && _wind_valid) ? _npfg.circleMode() : _l1_control.circle_mode();
+	const bool in_circle_mode = (_param_fw_use_npfg.get() && _wind_valid) ? _npfg.circleMode() : _l1_control.circle_mode();
 
 	if (pos_sp_next.type == position_setpoint_s::SETPOINT_TYPE_LAND && pos_sp_next.valid
 	    && in_circle_mode && _param_fw_lnd_earlycfg.get()) {
