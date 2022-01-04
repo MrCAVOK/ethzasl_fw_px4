@@ -359,7 +359,7 @@ private:
 
 	float period_{10.0f}; // nominal (desired) period -- user defined [s]
 	float damping_{0.7071f}; // nominal (desired) damping ratio -- user defined
-	float p_gain_{0.8885}; // proportional gain (computed from period_ and damping_) [rad/s]
+	float p_gain_{0.8885f}; // proportional gain (computed from period_ and damping_) [rad/s]
 	float time_const_{7.071f}; // time constant (computed from period_ and damping_) [s]
 	float adapted_period_{10.0f}; // auto-adapted period (if stability bounds enabled) [s]
 
