@@ -44,7 +44,7 @@ px4_add_module(
 		l1
 		launchdetection
 		landing_slope
-        npfg
+    npfg
 		runway_takeoff
 		tecs
 	)
