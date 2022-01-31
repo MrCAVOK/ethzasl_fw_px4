@@ -198,7 +198,34 @@ then
 
 fi
 
+#
+# Actuator test setup
+#
+if [ $VEHICLE_TYPE = actuator_test ]
+then
+	if [ $MIXER = none ]
+	then
+		# Set default mixer for fixed wing if not defined.
+		set MIXER AERTFG
+	fi
 
+	if [ $MAV_TYPE = none ]
+	then
+		# Set a default MAV_TYPE = 1 if not defined.
+		set MAV_TYPE 1
+	fi
+
+	# Set the mav type parameter.
+	param set MAV_TYPE ${MAV_TYPE}
+
+	# Load mixer and configure outputs.
+	. ${R}etc/init.d/rc.interface
+
+	ekf2 start &
+	airspeed_selector start
+	actuator_test_app start
+
+fi
 
 #
 # Generic setup (autostart ID not found).

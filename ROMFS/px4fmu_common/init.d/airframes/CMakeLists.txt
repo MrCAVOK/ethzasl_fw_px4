@@ -162,6 +162,7 @@ px4_add_romfs_files(
 	22001_asl_techpod
 	22002_asl_sensesoar2
 	22003_asl_believer
+	22004_asl_actuator_test
 
 	24001_dodeca_cox
 
