@@ -100,4 +100,5 @@ px4_add_romfs_files(
 	asl_easyglider.main.mix
 	asl_sensesoar2.main.mix
 	asl_techpod.main.mix
+	asl_actuator_test.main.mix
 )

@@ -124,7 +124,7 @@ void ActuatorTestApp::Run()
 	parameters_update(false);
 
 	// update subscriptions
-	_input_rc_sub.update(&_input_rc);	// update RC input
+	_input_rc_sub.update(&_input_rc);	// update RC input, not used now but on 3rd channel
 
 	// timing
 	const hrt_abstime now = hrt_absolute_time();
@@ -132,7 +132,7 @@ void ActuatorTestApp::Run()
 	_last_run = now;
 
 	// control stuff via system parameters
-	if (_triggered) {
+	if (_triggered) { //staircase signal
 
 		_timer_0 += dt;
 		_timer_1 += dt;
@@ -169,7 +169,7 @@ void ActuatorTestApp::Run()
 
 	// control stuff via RC inputs
 	if (!_input_rc.rc_lost) {
-		_actuators_0.control[2] = (_input_rc.values[0] - 1500.0f) / 500.0f;	
+		_actuators_0.control[2] = (_input_rc.values[0] - 1500.0f) / 500.0f;
 	}
 
 	// publish actuator commands
